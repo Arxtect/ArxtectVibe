@@ -33,8 +33,9 @@ const PermissionPanel: React.FC<PermissionPanelProps> = ({ projectId, className 
       setShowInviteModal(false)
       setInviteEmail('')
       setInviteRole('viewer')
-    } catch (err: any) {
-      setInviteError(err.message || '邀请失败')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '邀请失败'
+      setInviteError(message)
     }
   }
 

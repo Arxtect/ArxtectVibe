@@ -27,8 +27,9 @@ const Login: React.FC = () => {
       setIsLoading(true)
       await dataBridge.login(username, password)
       navigate('/projects')
-    } catch (err: any) {
-      setError(err.message || '登录失败，请重试')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '登录失败，请重试'
+      setError(message)
     } finally {
       setIsLoading(false)
     }

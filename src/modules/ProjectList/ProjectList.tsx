@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { dataBridge, useDataStore } from '@/core/dataBridge'
-import { Project } from '@/types'
 
 const ProjectList: React.FC = () => {
   const navigate = useNavigate()
@@ -32,8 +31,9 @@ const ProjectList: React.FC = () => {
       setNewProjectName('')
       // 直接进入新创建的项目
       navigate(`/editor/${project.id}`)
-    } catch (err: any) {
-      setCreateError(err.message || '创建项目失败')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '创建项目失败'
+      setCreateError(message)
     } finally {
       setIsCreating(false)
     }

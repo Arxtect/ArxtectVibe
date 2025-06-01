@@ -1,10 +1,9 @@
 import { create } from 'zustand'
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosInstance, AxiosError } from 'axios'
 import { 
   User, 
   Project, 
   FileEntry,
-  ProjectMember,
   CompileLogEntry, 
   ApiResponse, 
   AppState,
@@ -108,8 +107,12 @@ export const dataBridge = {
       } else {
         throw new Error(response.data.message || '登录失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '登录失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '登录失败'
+        : error instanceof Error
+        ? error.message
+        : '登录失败'
       toast.error(message)
       throw new Error(message)
     } finally {
@@ -142,8 +145,12 @@ export const dataBridge = {
       } else {
         throw new Error(response.data.message || '获取项目列表失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '获取项目列表失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '获取项目列表失败'
+        : error instanceof Error
+        ? error.message
+        : '获取项目列表失败'
       toast.error(message)
       throw new Error(message)
     } finally {
@@ -168,8 +175,12 @@ export const dataBridge = {
       } else {
         throw new Error(response.data.message || '创建项目失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '创建项目失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '创建项目失败'
+        : error instanceof Error
+        ? error.message
+        : '创建项目失败'
       toast.error(message)
       throw new Error(message)
     } finally {
@@ -189,8 +200,12 @@ export const dataBridge = {
       } else {
         throw new Error(response.data.message || '打开项目失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '打开项目失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '打开项目失败'
+        : error instanceof Error
+        ? error.message
+        : '打开项目失败'
       toast.error(message)
       throw new Error(message)
     } finally {
@@ -209,8 +224,12 @@ export const dataBridge = {
       if (!response.data.success) {
         throw new Error(response.data.message || '保存文件失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '保存文件失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '保存文件失败'
+        : error instanceof Error
+        ? error.message
+        : '保存文件失败'
       toast.error(message)
       throw new Error(message)
     }
@@ -231,8 +250,12 @@ export const dataBridge = {
       } else {
         throw new Error(response.data.message || '创建文件失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '创建文件失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '创建文件失败'
+        : error instanceof Error
+        ? error.message
+        : '创建文件失败'
       toast.error(message)
       throw new Error(message)
     }
@@ -253,8 +276,12 @@ export const dataBridge = {
       } else {
         throw new Error(response.data.message || '添加协作者失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '添加协作者失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '添加协作者失败'
+        : error instanceof Error
+        ? error.message
+        : '添加协作者失败'
       toast.error(message)
       throw new Error(message)
     }
@@ -268,14 +295,18 @@ export const dataBridge = {
       )
       
       if (response.data.success) {
-        // 刷新当前项目以更新协作者列表
+        // 刷新当前项目以更新权限信息
         await this.openProject(projectId)
         toast.success('权限更新成功')
       } else {
         throw new Error(response.data.message || '更新权限失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '更新权限失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '更新权限失败'
+        : error instanceof Error
+        ? error.message
+        : '更新权限失败'
       toast.error(message)
       throw new Error(message)
     }
@@ -288,14 +319,18 @@ export const dataBridge = {
       )
       
       if (response.data.success) {
-        // 刷新当前项目以更新协作者列表
+        // 刷新当前项目以更新成员列表
         await this.openProject(projectId)
-        toast.success('成员已移除')
+        toast.success('成员移除成功')
       } else {
         throw new Error(response.data.message || '移除成员失败')
       }
-    } catch (error: any) {
-      const message = error.response?.data?.message || error.message || '移除成员失败'
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '移除成员失败'
+        : error instanceof Error
+        ? error.message
+        : '移除成员失败'
       toast.error(message)
       throw new Error(message)
     }
@@ -303,10 +338,7 @@ export const dataBridge = {
 
   // 编译日志相关
   addCompileLog(log: CompileLogEntry): void {
-    useDataStore.getState().addCompileLog({
-      ...log,
-      timestamp: log.timestamp || Date.now()
-    })
+    useDataStore.getState().addCompileLog(log)
   },
 
   clearCompileLogs(): void {

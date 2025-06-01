@@ -22,31 +22,33 @@ class Logger {
     return this.levels[level] >= this.levels[this.config.level]
   }
 
-  private formatMessage(level: LogLevel, message: string, ...args: any[]): string {
+  private formatMessage(level: LogLevel, message: string): string {
     const timestamp = new Date().toISOString()
     const prefix = this.config.prefix ? `[${this.config.prefix}]` : ''
     return `[${timestamp}] [${level.toUpperCase()}]${prefix} ${message}`
   }
 
-  debug(message: string, ...args: any[]): void {
-    if (this.shouldLog('debug')) {
+  debug(message: string, ...args: unknown[]): void {
+    if (this.shouldLog('debug') && import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.log(this.formatMessage('debug', message), ...args)
     }
   }
 
-  info(message: string, ...args: any[]): void {
-    if (this.shouldLog('info')) {
+  info(message: string, ...args: unknown[]): void {
+    if (this.shouldLog('info') && import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
       console.log(this.formatMessage('info', message), ...args)
     }
   }
 
-  warn(message: string, ...args: any[]): void {
+  warn(message: string, ...args: unknown[]): void {
     if (this.shouldLog('warn')) {
       console.warn(this.formatMessage('warn', message), ...args)
     }
   }
 
-  error(message: string, ...args: any[]): void {
+  error(message: string, ...args: unknown[]): void {
     if (this.shouldLog('error')) {
       console.error(this.formatMessage('error', message), ...args)
     }
