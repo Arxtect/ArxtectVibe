@@ -9,6 +9,7 @@ import {
   AppState,
   Role
 } from '@/types'
+import { mockDataBridge } from './mockDataBridge'
 import toast from 'react-hot-toast'
 
 // API基础配置
@@ -60,6 +61,7 @@ interface DataStore extends AppState {
   setCurrentProject: (project: Project | null) => void
   addCompileLog: (log: CompileLogEntry) => void
   clearCompileLogs: () => void
+  setMockMode: (isMockMode: boolean) => void
   logout: () => void
 }
 
@@ -70,6 +72,7 @@ export const useDataStore = create<DataStore>((set) => ({
   currentProject: null,
   compileLogs: [],
   isLoading: false,
+  isMockMode: localStorage.getItem('mockMode') === 'true' || false,
 
   // Actions
   setLoading: (loading) => set({ isLoading: loading }),
@@ -80,6 +83,17 @@ export const useDataStore = create<DataStore>((set) => ({
     compileLogs: [...state.compileLogs, log] 
   })),
   clearCompileLogs: () => set({ compileLogs: [] }),
+  setMockMode: (isMockMode) => {
+    localStorage.setItem('mockMode', isMockMode.toString())
+    set({ isMockMode })
+    // 切换模式时清除当前状态
+    set({ 
+      currentUser: null, 
+      projects: [], 
+      currentProject: null,
+      compileLogs: []
+    })
+  },
   logout: () => set({ 
     currentUser: null, 
     projects: [], 
@@ -87,8 +101,8 @@ export const useDataStore = create<DataStore>((set) => ({
   }),
 }))
 
-// DataBridge API方法
-export const dataBridge = {
+// 实际后端 DataBridge API方法
+const realDataBridge = {
   // 用户认证相关
   async login(username: string, password: string): Promise<User> {
     try {
@@ -343,5 +357,151 @@ export const dataBridge = {
 
   clearCompileLogs(): void {
     useDataStore.getState().clearCompileLogs()
+  },
+}
+
+// 智能 DataBridge - 根据模式自动选择实际后端或Mock
+export const dataBridge = {
+  // 用户认证相关
+  async login(username: string, password: string): Promise<User> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      const user = await mockDataBridge.login(username, password)
+      useDataStore.getState().setCurrentUser(user)
+      return user
+    } else {
+      return realDataBridge.login(username, password)
+    }
+  },
+
+  async logout(): Promise<void> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      await mockDataBridge.logout()
+      useDataStore.getState().logout()
+    } else {
+      return realDataBridge.logout()
+    }
+  },
+
+  // 项目管理相关
+  async fetchProjects(): Promise<Project[]> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      const projects = await mockDataBridge.fetchProjects()
+      useDataStore.getState().setProjects(projects)
+      return projects
+    } else {
+      return realDataBridge.fetchProjects()
+    }
+  },
+
+  async createProject(name: string, description?: string): Promise<Project> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      const project = await mockDataBridge.createProject(name, description)
+      // 刷新项目列表
+      await this.fetchProjects()
+      return project
+    } else {
+      return realDataBridge.createProject(name, description)
+    }
+  },
+
+  async openProject(projectId: string): Promise<Project> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      const project = await mockDataBridge.openProject(projectId)
+      useDataStore.getState().setCurrentProject(project)
+      return project
+    } else {
+      return realDataBridge.openProject(projectId)
+    }
+  },
+
+  async deleteProject(projectId: string): Promise<void> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      return mockDataBridge.deleteProject(projectId)
+    } else {
+      // 实际后端的删除项目方法需要添加
+      throw new Error('删除项目功能尚未在后端实现')
+    }
+  },
+
+  // 文件操作相关
+  async saveFile(projectId: string, fileId: string, content: string): Promise<void> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      return mockDataBridge.saveFile(projectId, fileId, content)
+    } else {
+      return realDataBridge.saveFile(projectId, fileId, content)
+    }
+  },
+
+  async createFile(projectId: string, name: string, content: string = ''): Promise<FileEntry> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      return mockDataBridge.createFile(projectId, name, content)
+    } else {
+      return realDataBridge.createFile(projectId, name, content)
+    }
+  },
+
+  async deleteFile(projectId: string, fileId: string): Promise<void> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      return mockDataBridge.deleteFile(projectId, fileId)
+    } else {
+      // 实际后端的删除文件方法需要添加
+      throw new Error('删除文件功能尚未在后端实现')
+    }
+  },
+
+  // 协作者管理相关
+  async addCollaborator(projectId: string, userIdentifier: string, role: Role): Promise<void> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      return mockDataBridge.addCollaborator(projectId, userIdentifier, role)
+    } else {
+      return realDataBridge.addCollaborator(projectId, userIdentifier, role)
+    }
+  },
+
+  async updateMemberRole(projectId: string, userId: string, newRole: Role): Promise<void> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      return mockDataBridge.updateMemberRole(projectId, userId, newRole)
+    } else {
+      return realDataBridge.updateMemberRole(projectId, userId, newRole)
+    }
+  },
+
+  async removeMember(projectId: string, userId: string): Promise<void> {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      return mockDataBridge.removeMember(projectId, userId)
+    } else {
+      return realDataBridge.removeMember(projectId, userId)
+    }
+  },
+
+  // 编译日志相关
+  addCompileLog(log: CompileLogEntry): void {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      mockDataBridge.addCompileLog(log)
+    } else {
+      realDataBridge.addCompileLog(log)
+    }
+  },
+
+  clearCompileLogs(): void {
+    const isMockMode = useDataStore.getState().isMockMode
+    if (isMockMode) {
+      mockDataBridge.clearCompileLogs()
+    } else {
+      realDataBridge.clearCompileLogs()
+    }
   },
 } 

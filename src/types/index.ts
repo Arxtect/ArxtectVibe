@@ -59,6 +59,7 @@ export interface AppState {
   currentProject: Project | null;
   compileLogs: CompileLogEntry[];
   isLoading: boolean;
+  isMockMode: boolean; // 是否使用无后端模式
 }
 
 // 编译结果类型

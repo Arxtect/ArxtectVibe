@@ -5,6 +5,8 @@ import { useDataStore } from '@/core/dataBridge'
 const Landing: React.FC = () => {
   const navigate = useNavigate()
   const currentUser = useDataStore((state) => state.currentUser)
+  const isMockMode = useDataStore((state) => state.isMockMode)
+  const setMockMode = useDataStore((state) => state.setMockMode)
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -18,6 +20,10 @@ const Landing: React.FC = () => {
       // navigate('/projects')
     }
   }, [currentUser, navigate])
+
+  const handleMockModeToggle = () => {
+    setMockMode(!isMockMode)
+  }
 
   const features = [
     {
@@ -87,7 +93,24 @@ const Landing: React.FC = () => {
           <h1 className={`text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
             ArxtectVibe
           </h1>
-          <div className={`flex gap-4 transition-all duration-1000 delay-200 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+          <div className={`flex items-center gap-4 transition-all duration-1000 delay-200 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+            {/* Mock模式切换 */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-800 bg-opacity-50 rounded-lg backdrop-blur-sm">
+              <span className="text-sm text-gray-300">
+                {isMockMode ? '🔧 Mock模式' : '🌐 后端模式'}
+              </span>
+              <button
+                onClick={handleMockModeToggle}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                  isMockMode ? 'bg-blue-600' : 'bg-gray-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                  isMockMode ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
             {currentUser ? (
               <>
                 <span className="text-gray-300">欢迎, {currentUser.displayName || currentUser.username}</span>
