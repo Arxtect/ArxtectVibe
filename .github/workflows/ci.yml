@@ -1,14 +1,15 @@
-name: Tests
+name: Continuous Integration
 
 on:
   push:
-    branches: [ main, develop, release, 'feature/**', 'hotfix/**' ]
+    branches: [ '**' ]  # 在所有分支运行 CI
   pull_request:
     branches: [ main, develop, release ]
 
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
+    name: Code Quality Check
     
     steps:
       - name: Checkout code
@@ -26,16 +27,13 @@ jobs:
       - name: Run linter
         run: npm run lint
       
-      - name: Run unit tests
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+      
+      - name: Run tests
         run: npm test -- --run
         env:
           CI: true
       
-      - name: Generate coverage report
-        run: npm run test:coverage || echo "No coverage script available"
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false 
+      - name: Build project
+        run: npm run build 

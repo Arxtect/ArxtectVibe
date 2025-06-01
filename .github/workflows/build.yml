@@ -2,9 +2,9 @@ name: Build Status
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, release, 'feature/**', 'hotfix/**' ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, release ]
 
 jobs:
   build:

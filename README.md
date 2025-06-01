@@ -12,7 +12,8 @@
 
 # 基于 Yjs 的协同 LaTeX 编辑平台前端项目
 
-[![CI/CD](https://github.com/Arxtect/ArxtectVibe/actions/workflows/deploy.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/deploy.yml)
+[![Deploy to Production](https://github.com/Arxtect/ArxtectVibe/actions/workflows/deploy.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/deploy.yml)
+[![Continuous Integration](https://github.com/Arxtect/ArxtectVibe/actions/workflows/ci.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/ci.yml)
 [![Build Status](https://github.com/Arxtect/ArxtectVibe/actions/workflows/build.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/build.yml)
 [![Tests](https://github.com/Arxtect/ArxtectVibe/actions/workflows/test.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -29,6 +30,24 @@
 后端主要提供**项目管理**相关的 REST API（已由后台团队实现并提供了正式文档）。这些 API 包括：用户认证（登录/注销）、获取用户有权限的项目列表、新建或删除项目、项目协作者权限管理、以及（如适用）运行日志的历史记录查询等接口。前端通过统一的数据中间件与后端交互，以获取初始的项目结构、保存项目元数据，以及在必要时将内容变更或编译结果通知后端。需要注意的是，文档内容的协同编辑由前端的 Yjs 机制处理，后端不直接参与内容同步，但可定期接收项目保存请求用于持久化存储。
 
 本项目采用模块化、AI 辅助驱动的开发方式。所有前端功能将拆分为独立的模块单元进行开发，每个模块围绕单一功能，彼此解耦（例如登录模块、项目列表模块、编辑器模块等，详见下文结构）。开发过程中将充分利用 **"Vibe Coding"氛围编程** 方法：开发者通过对话式地向大型语言模型（如 Claude）描述需求，由 AI 生成代码，实现快速迭代。这种方法让我们专注于高层次设计和架构，把底层代码实现交给 AI 完成，从而提高开发效率。整个开发流程以 **README + 模块任务列表** 为指导，确保 AI 和开发者在 Cursor 编辑器中的协同工作有清晰的目标和边界。
+
+## CI/CD 工作流程
+
+本项目采用分支策略的 CI/CD 流程，确保代码质量和部署安全：
+
+### 🔄 持续集成 (CI)
+- **触发条件**: 推送到任何分支
+- **执行内容**: 代码质量检查、TypeScript 类型检查、单元测试、构建验证
+
+### 🧪 测试与构建检查
+- **触发条件**: 推送到功能分支或主要分支
+- **执行内容**: 完整测试套件、多版本构建验证、代码覆盖率报告
+
+### 🚀 生产部署
+- **触发条件**: **仅推送到 `release` 分支**
+- **执行内容**: 完整 CI 检查 + 自动部署到 GitHub Pages
+
+> 📖 详细的分支策略和开发工作流程请参考 [分支策略文档](.github/BRANCHING_STRATEGY.md)
 
 ## 快速开始
 
@@ -78,7 +97,8 @@ npm run preview
 
 3. **部署到 GitHub Pages**
    - 确保仓库设置中启用了 GitHub Pages，Source 选择 "GitHub Actions"
-   - 推送代码到 main 分支，GitHub Actions 会自动部署
+   - **只有推送代码到 `release` 分支才会触发自动部署**
+   - 其他分支只会运行测试和构建检查
 
 ### 开发工具
 
