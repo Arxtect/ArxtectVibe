@@ -1,0 +1,88 @@
+{
+  "id": "collaboration",
+  "name": "Real-time Collaboration",
+  "version": "1.0.0",
+  "description": "Yjs-based real-time collaborative editing with cursor tracking and user presence",
+  "main": "./extension.js",
+  "activationEvents": ["onFileOpen:*.tex", "*"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "collaboration.togglePanel",
+        "title": "Toggle Collaboration Panel",
+        "icon": "$(people)"
+      },
+      {
+        "command": "collaboration.shareProject",
+        "title": "Share Project",
+        "icon": "$(share)"
+      },
+      {
+        "command": "collaboration.disconnectSession",
+        "title": "Disconnect Collaboration Session",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "collaboration.showUserCursors",
+        "title": "Show User Cursors",
+        "icon": "$(location)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "collaboration.shareProject",
+          "when": "resourceExtname == .tex",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "collaboration.shareProject",
+          "when": "view == collaboration.userList",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewContainers": {
+      "activitybar": [
+        {
+          "id": "collaboration",
+          "title": "Collaboration",
+          "icon": "$(people)"
+        }
+      ]
+    },
+    "views": {
+      "collaboration": [
+        {
+          "id": "collaboration.userList",
+          "name": "Online Users",
+          "when": "collaboration.isConnected"
+        },
+        {
+          "id": "collaboration.sessions",
+          "name": "Active Sessions",
+          "when": "collaboration.hasProject"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "collaboration.togglePanel",
+        "key": "ctrl+shift+p",
+        "mac": "cmd+shift+p"
+      }
+    ]
+  },
+  "engines": {
+    "webide": "^1.0.0"
+  },
+  "categories": ["Collaboration", "Real-time"],
+  "keywords": ["yjs", "collaboration", "real-time", "cursor", "presence"],
+  "dependencies": {
+    "yjs": "^13.5.0",
+    "y-websocket": "^1.5.0",
+    "y-monaco": "^0.1.0"
+  }
+} 

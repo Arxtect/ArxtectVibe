@@ -14,7 +14,14 @@ import { useDataStore } from '@/core/dataBridge'
  */
 export const WebIDE: React.FC<WebIDEProps> = ({
   projectPath,
-  plugins = ['pdf-viewer', 'ai-assistant', 'monaco-editor', 'plugin-manager'],
+  plugins = [
+    'pdf-viewer', 
+    'ai-assistant', 
+    'monaco-editor', 
+    'latex-compiler',
+    'collaboration',
+    'plugin-manager'
+  ],
   theme = 'dark',
   enabledFeatures = {
     fileExplorer: true,
@@ -200,11 +207,21 @@ export const WebIDE: React.FC<WebIDEProps> = ({
               command: 'aiAssistant.explainError',
               title: 'Explain LaTeX Error'
             }
-          ]
+          ],
+          viewContainers: [{
+            id: 'aiAssistant',
+            title: 'AI Assistant',
+            icon: 'robot'
+          }],
+          views: [{
+            id: 'aiAssistant.chat',
+            name: 'AI Chat',
+            viewContainer: 'aiAssistant'
+          }]
         }
       }
     }
-    
+
     if (pluginId === 'monaco-editor') {
       return {
         id: 'monaco-editor',
@@ -212,29 +229,70 @@ export const WebIDE: React.FC<WebIDEProps> = ({
         version: '1.0.0',
         description: 'Advanced code editor with syntax highlighting and auto-completion',
         main: './extension.js',
-        activationEvents: ['onFileOpen:*.tex', 'onFileOpen:*.md', 'onFileOpen:*.js', 'onFileOpen:*.ts'],
+        activationEvents: ['onFileOpen:*.tex', 'onFileOpen:*.md'],
         contributes: {
           customEditors: [{
             viewType: 'monacoEditor.textEditor',
             displayName: 'Monaco Text Editor',
-            selector: [
-              { filenamePattern: '*.tex' },
-              { filenamePattern: '*.md' },
-              { filenamePattern: '*.js' },
-              { filenamePattern: '*.ts' }
-            ],
+            selector: [{ filenamePattern: '*.tex' }, { filenamePattern: '*.md' }],
             priority: 'default' as const
-          }],
+          }]
+        }
+      }
+    }
+
+    if (pluginId === 'latex-compiler') {
+      return {
+        id: 'latex-compiler',
+        name: 'LaTeX Compiler',
+        version: '1.0.0',
+        description: 'WebAssembly-based LaTeX compiler with real-time compilation',
+        main: './extension.js',
+        activationEvents: ['onFileOpen:*.tex'],
+        contributes: {
           commands: [
             {
-              command: 'monacoEditor.format',
-              title: 'Format Document'
+              command: 'latexCompiler.compile',
+              title: 'Compile LaTeX Document'
             },
             {
-              command: 'monacoEditor.toggleMinimap',
-              title: 'Toggle Minimap'
+              command: 'latexCompiler.compileAndPreview',
+              title: 'Compile and Preview'
             }
-          ]
+          ],
+          viewContainers: [{
+            id: 'latexCompiler',
+            title: 'LaTeX Compiler',
+            icon: 'terminal'
+          }]
+        }
+      }
+    }
+
+    if (pluginId === 'collaboration') {
+      return {
+        id: 'collaboration',
+        name: 'Real-time Collaboration',
+        version: '1.0.0',
+        description: 'Yjs-based real-time collaborative editing',
+        main: './extension.js',
+        activationEvents: ['*'],
+        contributes: {
+          commands: [
+            {
+              command: 'collaboration.shareProject',
+              title: 'Share Project'
+            },
+            {
+              command: 'collaboration.togglePanel',
+              title: 'Toggle Collaboration Panel'
+            }
+          ],
+          viewContainers: [{
+            id: 'collaboration',
+            title: 'Collaboration',
+            icon: 'people'
+          }]
         }
       }
     }
@@ -244,268 +302,268 @@ export const WebIDE: React.FC<WebIDEProps> = ({
         id: 'plugin-manager',
         name: 'Plugin Manager',
         version: '1.0.0',
-        description: 'Manage WebIDE plugins - install, enable, disable, and configure plugins',
+        description: 'Manage and configure IDE plugins',
         main: './extension.js',
         activationEvents: ['*'],
         contributes: {
           commands: [
             {
-              command: 'pluginManager.openView',
+              command: 'pluginManager.open',
               title: 'Open Plugin Manager'
-            },
-            {
-              command: 'pluginManager.refresh',
-              title: 'Refresh Plugin List'
             }
           ]
         }
       }
     }
-    
-    throw new Error(`Unknown plugin: ${pluginId}`)
+
+    // 默认插件清单
+    return {
+      id: pluginId,
+      name: pluginId,
+      version: '1.0.0',
+      description: `Plugin: ${pluginId}`,
+      main: './extension.js',
+      activationEvents: ['*'],
+      contributes: {}
+    }
   }
 
-  // 加载项目文件（通过 DataBridge）
+  // 加载项目文件
   const loadProjectFiles = async () => {
     try {
-      console.log(`[WebIDE] Loading project files for project: ${projectId}`)
+      const projectFilePaths = await dataBridge.getProjectFiles(projectId)
       
-      const projectFiles = await dataBridge.getProjectFiles(projectId)
-      console.log(`[WebIDE] Loaded project files:`, projectFiles)
-      setFiles(projectFiles)
+      // getProjectFiles 返回的是字符串数组，包含文件路径
+      // 过滤掉目录（以 '/' 结尾）并只保留文件
+      const validFileNames = Array.isArray(projectFilePaths) 
+        ? projectFilePaths.filter(path => !path.endsWith('/') && typeof path === 'string')
+        : []
       
-      // 默认打开第一个 .tex 文件
-      const texFile = projectFiles.find((file: string) => file.endsWith('.tex') && !file.includes('/'))
-      const firstFile = texFile || projectFiles.find((file: string) => !file.endsWith('/'))
+      setFiles(validFileNames)
       
-      if (firstFile) {
-        await openFile(firstFile)
+      // 自动打开 main.tex 文件
+      const mainFilePath = validFileNames.find(path => path === 'main.tex')
+      if (mainFilePath) {
+        setCurrentFile(mainFilePath)
+        // 读取文件内容
+        try {
+          const content = await dataBridge.readFile(projectId, mainFilePath)
+          setFileContent(content || '')
+        } catch (error) {
+          console.error('[WebIDE] Failed to read main.tex:', error)
+          setFileContent('')
+        }
       }
     } catch (error) {
       console.error('[WebIDE] Failed to load project files:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load project files')
+      setFiles([]) // 设置空数组作为后备
     }
   }
 
-  // 打开文件（通过 DataBridge）
+  // 打开文件
   const openFile = async (filePath: string) => {
     try {
-      console.log(`[WebIDE] Opening file: ${filePath}`)
-      
       const content = await dataBridge.readFile(projectId, filePath)
       setCurrentFile(filePath)
       setFileContent(content)
-      
-      // 发送文件打开事件
-      const encoder = new TextEncoder()
-      const buffer = new Uint8Array(encoder.encode(content)) as unknown as Buffer
-      eventBus.emit('file.opened', { uri: filePath, content: buffer })
-      
     } catch (error) {
-      console.error(`[WebIDE] Failed to open file ${filePath}:`, error)
+      console.error('[WebIDE] Failed to open file:', error)
     }
   }
 
-  // 保存文件（通过 DataBridge）
+  // 保存文件
   const saveFile = async (filePath: string, content: string) => {
     try {
       await dataBridge.writeFile(projectId, filePath, content)
-      console.log(`[WebIDE] File saved: ${filePath}`)
+      console.log('[WebIDE] File saved:', filePath)
     } catch (error) {
-      console.error(`[WebIDE] Failed to save file ${filePath}:`, error)
+      console.error('[WebIDE] Failed to save file:', error)
     }
   }
 
-  // 文件点击处理
+  // 处理文件点击
   const handleFileClick = async (fileName: string) => {
-    try {
-      // 如果点击的是目录，不做任何操作
-      if (fileName.endsWith('/')) {
-        console.log(`[WebIDE] Clicked directory: ${fileName}`)
-        return
-      }
+    await openFile(fileName)
+  }
+
+  // 处理内容变化
+  const handleContentChange = (content: string) => {
+    setFileContent(content)
+    if (currentFile) {
+      // 自动保存（防抖处理）
+      const timeoutId = setTimeout(() => {
+        saveFile(currentFile, content)
+      }, 1000)
       
-      await openFile(fileName)
-    } catch (error) {
-      console.error(`[WebIDE] Failed to handle file click for ${fileName}:`, error)
+      return () => clearTimeout(timeoutId)
     }
   }
 
   // 获取文件图标
-  const getFileIcon = (fileName: string): string => {
-    if (fileName.endsWith('/')) {
-      return '📁' // 目录
-    } else if (fileName.endsWith('.tex')) {
-      return '📄' // LaTeX 文件
-    } else if (fileName.endsWith('.pdf')) {
-      return '📕' // PDF 文件
-    } else if (fileName.endsWith('.md')) {
-      return '📝' // Markdown 文件
-    } else if (fileName.endsWith('.bib')) {
-      return '📚' // 参考文献文件
-    } else if (fileName.includes('section')) {
-      return '📂' // 章节文件
-    } else {
-      return '📄' // 默认文件
+  const getFileIcon = (fileName: string | undefined): string => {
+    if (!fileName) return '📄'
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    switch (ext) {
+      case 'tex':
+        return '📄'
+      case 'pdf':
+        return '📕'
+      case 'bib':
+        return '📚'
+      case 'sty':
+        return '🎨'
+      default:
+        return '📄'
     }
   }
 
   // 打开插件管理器
   const openPluginManager = () => {
-    if (pluginManagerRef.current) {
-      // 触发插件管理器的打开命令
-      commandService.executeCommand('pluginManager.openView')
-    }
+    console.log('[WebIDE] Opening plugin manager...')
+    // 触发插件管理器命令
+    commandService.executeCommand('pluginManager.open')
   }
 
-  // 渲染编辑器内容
+  // 渲染编辑器区域
   const renderEditor = () => {
-    if (!currentFile || !fileContent) {
+    if (!currentFile) {
       return (
-        <div className="h-full flex items-center justify-center text-gray-500">
+        <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
           <div className="text-center">
-            <div className="text-4xl mb-4">📁</div>
-            <div>Select a file to open</div>
+            <div className="text-4xl mb-4">📝</div>
+            <div className="text-lg">Welcome to WebIDE</div>
+            <div className="text-sm mt-2">Select a file to start editing</div>
           </div>
         </div>
       )
     }
 
-    // 检查是否有自定义编辑器
-    const customEditor = customEditorService.getCustomEditor(currentFile)
-    if (customEditor) {
-      // 将字符串内容转换为 Buffer
-      const encoder = new TextEncoder()
-      const buffer = new Uint8Array(encoder.encode(fileContent)) as unknown as Buffer
-      return customEditor.render(currentFile, buffer)
-    }
-
-    // 默认文本编辑器
+    // 在实际实现中，这里会根据文件类型选择合适的编辑器插件
     return (
-      <div className="h-full p-4">
-        <div className="mb-4 text-sm text-gray-500">
-          Default Text Editor: {currentFile}
-        </div>
-        <textarea
-          className="w-full h-full border border-gray-300 rounded p-4 font-mono text-sm"
-          value={fileContent}
-          onChange={async (e) => {
-            const newContent = e.target.value
-            setFileContent(newContent)
-            // 自动保存（可以添加防抖）
-            if (currentFile) {
-              await saveFile(currentFile, newContent)
-            }
-          }}
-          placeholder="File content..."
-        />
-      </div>
-    )
-  }
-
-  // 加载中状态
-  if (!isInitialized && !error) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <div className="text-gray-600 dark:text-gray-400">Initializing WebIDE...</div>
-          <div className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-            Loading plugins and file system
+      <div className="flex-1 flex flex-col">
+        <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
+          <div className="flex items-center space-x-2">
+            <span>{getFileIcon(currentFile)}</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {currentFile}
+            </span>
           </div>
         </div>
+        <div className="flex-1 p-4">
+          <textarea
+            value={fileContent}
+            onChange={(e) => handleContentChange(e.target.value)}
+            className="w-full h-full p-4 border border-gray-300 dark:border-gray-600 rounded font-mono text-sm resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            placeholder="Start editing your LaTeX document..."
+          />
+        </div>
       </div>
     )
   }
 
-  // 错误状态
   if (error) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="text-center">
-          <div className="text-6xl mb-4 text-red-500">⚠️</div>
-          <div className="text-red-600 dark:text-red-400 mb-2">WebIDE Initialization Failed</div>
-          <div className="text-gray-600 dark:text-gray-400 text-sm mb-4">{error}</div>
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            WebIDE Error
+          </div>
+          <div className="text-gray-600 dark:text-gray-400 mb-4">
+            {error}
+          </div>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            Retry
+            Reload
           </button>
         </div>
       </div>
     )
   }
 
-  // 主界面
+  if (!isInitialized) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-pulse">🚀</div>
+          <div className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            Initializing WebIDE
+          </div>
+          <div className="text-gray-600 dark:text-gray-400">
+            Loading plugins and project files...
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className={`h-screen flex ${theme === 'dark' ? 'dark' : ''}`}>
-      <div className="flex-1 flex bg-white dark:bg-gray-900">
-        {/* 文件浏览器侧边栏 */}
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+      {/* 标题栏 */}
+      <div className="bg-gray-800 text-white px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <h1 className="text-lg font-semibold">WebIDE</h1>
+          <span className="text-sm text-gray-300">Project: {projectId}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={openPluginManager}
+            className="text-sm text-gray-300 hover:text-white"
+          >
+            🔌 Plugins
+          </button>
+          <span className="text-sm text-gray-300">
+            {currentUser?.username}
+          </span>
+        </div>
+      </div>
+
+      {/* 主内容区域 */}
+      <div className="flex-1 flex">
+        {/* 侧边栏 - 文件浏览器 */}
         {enabledFeatures.fileExplorer && (
-          <div className="w-80 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Files</h3>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {projectPath}
-              </div>
-            </div>
-            <div className="p-2">
-              {files.map((file) => (
-                <div key={file} className="mb-1">
-                  <button
-                    onClick={() => handleFileClick(file)}
-                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                      currentFile?.endsWith(file.replace(/\/$/, '')) // Remove trailing slash for comparison
+          <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                📁 Files
+              </h3>
+              <div className="space-y-1">
+                {files
+                  .filter(fileName => fileName && typeof fileName === 'string') // 过滤无效文件名
+                  .map((fileName) => (
+                  <div
+                    key={fileName}
+                    onClick={() => handleFileClick(fileName)}
+                    className={`flex items-center space-x-2 p-2 rounded cursor-pointer text-sm ${
+                      currentFile === fileName
                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
-                        : file.endsWith('/') 
-                          ? 'hover:bg-gray-50 dark:hover:bg-gray-750 text-gray-600 dark:text-gray-400'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
-                    disabled={file.endsWith('/')} // Disable directory clicking for now
                   >
-                    <div className={`flex items-center ${
-                      file.includes('/') && !file.endsWith('/') ? 'ml-4' : ''
-                    }`}>
-                      <span className="mr-2">
-                        {getFileIcon(file)}
-                      </span>
-                      <span className={file.endsWith('/') ? 'font-medium text-gray-700 dark:text-gray-300' : ''}>
-                        {file}
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              ))}
+                    <span>{getFileIcon(fileName)}</span>
+                    <span>{fileName}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* 主编辑器区域 */}
-        <div className="flex-1 flex flex-col">
-          {/* 标题栏 */}
-          <div className="h-12 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4">
-            <div className="flex-1">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {currentFile ? `📁 ${currentFile.split('/').pop()}` : 'WebIDE'}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2 text-xs text-gray-500">
-              <span>🔌 {pluginManagerRef.current?.getStats().active || 0} plugins</span>
-              <button
-                onClick={openPluginManager}
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
-                title="Open Plugin Manager"
-              >
-                🔧 Manage
-              </button>
-            </div>
-          </div>
+        {/* 编辑器区域 */}
+        {renderEditor()}
+      </div>
 
-          {/* 编辑器内容 */}
-          <div className="flex-1 overflow-hidden">
-            {renderEditor()}
-          </div>
+      {/* 状态栏 */}
+      <div className="bg-blue-600 text-white px-4 py-1 flex items-center justify-between text-sm">
+        <div className="flex items-center space-x-4">
+          <span>✅ Ready</span>
+          <span>🔌 {plugins.length} plugins loaded</span>
+        </div>
+        <div className="flex items-center space-x-4">
+          <span>Line 1, Col 1</span>
+          <span>LaTeX</span>
         </div>
       </div>
     </div>

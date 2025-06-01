@@ -1,0 +1,86 @@
+{
+  "id": "latex-compiler",
+  "name": "LaTeX Compiler",
+  "version": "1.0.0",
+  "description": "WebAssembly-based LaTeX compiler with real-time compilation and error reporting",
+  "main": "./extension.js",
+  "activationEvents": ["onFileOpen:*.tex", "onCommand:latexCompiler.compile"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "latexCompiler.compile",
+        "title": "Compile LaTeX Document",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "latexCompiler.compileAndPreview",
+        "title": "Compile and Preview",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "latexCompiler.clearLogs",
+        "title": "Clear Compiler Logs",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "latexCompiler.exportLogs",
+        "title": "Export Compilation Logs",
+        "icon": "$(export)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "latexCompiler.compile",
+          "when": "resourceExtname == .tex",
+          "group": "navigation"
+        },
+        {
+          "command": "latexCompiler.compileAndPreview",
+          "when": "resourceExtname == .tex",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "latexCompiler.compile",
+          "when": "resourceExtname == .tex"
+        }
+      ]
+    },
+    "viewContainers": {
+      "panel": [
+        {
+          "id": "latexCompiler",
+          "title": "LaTeX Compiler",
+          "icon": "$(terminal)"
+        }
+      ]
+    },
+    "views": {
+      "latexCompiler": [
+        {
+          "id": "latexCompiler.output",
+          "name": "Compiler Output",
+          "when": "latexCompiler.hasProject"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "latexCompiler.compile",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "resourceExtname == .tex"
+      }
+    ]
+  },
+  "engines": {
+    "webide": "^1.0.0"
+  },
+  "categories": ["Compilers", "LaTeX"],
+  "keywords": ["latex", "compiler", "pdf", "webassembly", "wasm"],
+  "dependencies": {
+    "@latexjs/runtime": "^1.0.0"
+  }
+} 

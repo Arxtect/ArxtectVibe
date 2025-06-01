@@ -87,31 +87,41 @@ function App() {
       setLoading(true)
       
       try {
-        const token = localStorage.getItem('auth_token')
+        console.log(`[App] Initializing user state, mode: ${isMockMode ? 'Mock' : 'Real'}`)
         
-        if (token && !isMockMode) {
-          // 在真实模式下，需要验证token并获取用户信息
-          // TODO: 实现真实的token验证
-          console.log('Token found, but real backend not implemented yet')
-        } else if (isMockMode) {
-          // 在Mock模式下，检查是否有保存的用户状态
+        if (isMockMode) {
+          // Mock 模式：检查是否有保存的用户状态
           const savedUser = localStorage.getItem('mock_current_user')
           if (savedUser) {
             try {
               const user = JSON.parse(savedUser)
               setCurrentUser(user)
-              console.log('Mock user state restored:', user.username)
+              console.log('[App] Mock user state restored:', user.username)
             } catch (error) {
-              console.error('Failed to parse saved user state:', error)
+              console.error('[App] Failed to parse saved user state:', error)
               localStorage.removeItem('mock_current_user')
             }
+          } else {
+            console.log('[App] No saved Mock user found')
+          }
+        } else {
+          // 真实模式：检查 token 有效性
+          const token = localStorage.getItem('auth_token')
+          if (token) {
+            // TODO: 实现真实的token验证
+            console.log('[App] Token found, but real backend validation not implemented yet')
+            // 临时清理无效的 token
+            localStorage.removeItem('auth_token')
+          } else {
+            console.log('[App] No auth token found')
           }
         }
       } catch (error) {
-        console.error('Failed to initialize user state:', error)
+        console.error('[App] Failed to initialize user state:', error)
       } finally {
         setLoading(false)
         setIsInitialized(true)
+        console.log('[App] User state initialization complete')
       }
     }
 

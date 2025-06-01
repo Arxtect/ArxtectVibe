@@ -89,15 +89,29 @@ export const useDataStore = create<DataStore>((set) => ({
   })),
   clearCompileLogs: () => set({ compileLogs: [] }),
   setMockMode: (isMockMode) => {
+    // 保存新的模式设置
     localStorage.setItem('mockMode', isMockMode.toString())
-    set({ isMockMode })
-    // 切换模式时清除当前状态
+    
+    // 彻底清理所有状态
+    if (isMockMode) {
+      // 切换到 Mock 模式：清理真实模式的数据
+      localStorage.removeItem('auth_token')
+    } else {
+      // 切换到真实模式：清理 Mock 模式的数据
+      localStorage.removeItem('mock_current_user')
+    }
+    
+    // 清理 Zustand 状态
     set({ 
+      isMockMode,
       currentUser: null, 
       projects: [], 
       currentProject: null,
-      compileLogs: []
+      compileLogs: [],
+      isLoading: false
     })
+    
+    console.log(`[DataBridge] Switched to ${isMockMode ? 'Mock' : 'Real'} mode, all state cleared`)
   },
   logout: () => set({ 
     currentUser: null, 
