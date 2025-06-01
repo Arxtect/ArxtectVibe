@@ -22,25 +22,38 @@ export class AIServiceImpl implements AIService {
     console.log('[AIService] AI service initialized successfully')
   }
 
-  async generateCompletion(prompt: string, context?: any): Promise<string> {
-    if (!this.isInitialized) {
-      throw new Error('AI Service not initialized')
-    }
+  async generateCompletion(prompt: string, _context?: any): Promise<string> {
+    console.log('[AIServiceImpl] Generating completion for prompt:', prompt)
+    
+    // 模拟AI生成延迟
+    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
+    
+    console.log('[AIServiceImpl] Completion generated')
+    
+    // 返回模拟的AI补全结果
+    return `// AI建议的代码补全
+// 基于提示: "${prompt}"
+\\documentclass{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage{amsmath}
 
-    console.log('[AIService] Generating completion for prompt:', prompt.substring(0, 50) + '...')
+\\begin{document}
+\\title{${prompt.includes('title') ? 'AI生成的标题' : '文档标题'}}
+\\author{AI助手}
+\\date{\\today}
+\\maketitle
 
-    // 模拟 AI 响应（实际实现将连接真实的 AI 服务）
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(`% AI Generated LaTeX suggestion based on: ${prompt.substring(0, 50)}...
-\\section{Introduction}
-This section introduces the main topic of discussion.`)
-      }, 1000)
-    })
+\\section{介绍}
+这是基于您的提示"${prompt}"生成的LaTeX代码。
+
+\\section{内容}
+% 在这里添加您的内容
+
+\\end{document}`
   }
 
   async generateInlineCompletion(
-    documentContent: string,
+    _documentContent: string,
     cursorPosition: { line: number; column: number }
   ): Promise<AIInlineCompletion | null> {
     if (!this.isInitialized) {

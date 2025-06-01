@@ -1,6 +1,10 @@
 import React from 'react'
 import { IPlugin, IPluginContext, ICustomEditorProvider } from '../../types'
 
+// LaTeX 正则表达式常量
+const TEX_COMMANDS_REGEX = /\\[a-zA-Z]+/
+const MATH_COMMANDS_REGEX = /\$[^$]*\$/
+
 // LaTeX 语言定义
 const LATEX_LANGUAGE_CONFIG = {
   id: 'latex',
@@ -24,7 +28,7 @@ const LATEX_LANGUAGE_DEFINITION = {
     'flushleft', 'flushright', 'minipage', 'tabular', 'array'
   ],
   
-  symbols: /[=><!~?:&|+\-*\/\^%]+/,
+  symbols: /[=><!~?:&|+\-*/^%]+/,
   
   tokenizer: {
     root: [
@@ -32,7 +36,7 @@ const LATEX_LANGUAGE_DEFINITION = {
       [/%.*$/, 'comment'],
       
       // 命令
-      [/\\[a-zA-Z@]+/, {
+      [TEX_COMMANDS_REGEX, {
         cases: {
           '@keywords': 'keyword',
           '@default': 'tag'
@@ -44,7 +48,7 @@ const LATEX_LANGUAGE_DEFINITION = {
       [/\\end\{([^}]+)\}/, 'keyword'],
       
       // 数学模式
-      [/\$\$/, 'string', '@math_display'],
+      [MATH_COMMANDS_REGEX, 'string', '@math_display'],
       [/\$/, 'string', '@math_inline'],
       [/\\\[/, 'string', '@math_display'],
       [/\\\(/, 'string', '@math_inline'],
@@ -61,14 +65,14 @@ const LATEX_LANGUAGE_DEFINITION = {
     environment: [
       [/\\end\{$S2\}/, 'keyword', '@pop'],
       [/[^\\]+/, 'string'],
-      [/\\[a-zA-Z@]+/, 'tag'],
+      [TEX_COMMANDS_REGEX, 'tag'],
       [/./, 'string']
     ],
     
     math_display: [
-      [/\$\$/, 'string', '@pop'],
+      [MATH_COMMANDS_REGEX, 'string', '@pop'],
       [/\\\]/, 'string', '@pop'],
-      [/\\[a-zA-Z@]+/, 'keyword'],
+      [TEX_COMMANDS_REGEX, 'keyword'],
       [/[^\\$]+/, 'number'],
       [/./, 'number']
     ],
@@ -76,7 +80,7 @@ const LATEX_LANGUAGE_DEFINITION = {
     math_inline: [
       [/\$/, 'string', '@pop'],
       [/\\\)/, 'string', '@pop'],
-      [/\\[a-zA-Z@]+/, 'keyword'],
+      [TEX_COMMANDS_REGEX, 'keyword'],
       [/[^\\$]+/, 'number'],
       [/./, 'number']
     ],
@@ -88,7 +92,7 @@ const LATEX_LANGUAGE_DEFINITION = {
     ],
     
     brackets: [
-      [/[^\[\]]+/, 'string'],
+      [/[^[\]]+/, 'string'],
       [/\[/, 'delimiter.square', '@push'],
       [/\]/, 'delimiter.square', '@pop']
     ]

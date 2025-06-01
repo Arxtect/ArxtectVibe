@@ -16,14 +16,20 @@ class AIServiceImpl {
     this.isInitialized = true
   }
 
-  async generateCompletion(prompt: string, context?: any): Promise<string> {
-    if (!this.isInitialized) {
-      throw new Error('AI Service not initialized')
-    }
-    return `% AI Generated suggestion for: ${prompt.substring(0, 30)}...`
+  async generateCompletion(prompt: string, _context?: any): Promise<string> {
+    console.log('[AI Assistant] Generating completion for:', prompt)
+    
+    // 模拟AI生成过程
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(`% AI建议的LaTeX代码
+\\section{${prompt.includes('section') ? '新章节' : '内容'}}
+这是基于提示"${prompt}"生成的内容。`)
+      }, 1500)
+    })
   }
 
-  async generateInlineCompletion(documentContent: string, cursorPosition: { line: number; column: number }) {
+  async generateInlineCompletion(_documentContent: string, cursorPosition: { line: number; column: number }) {
     if (!this.isInitialized) return null
     return {
       text: '\\section{Introduction}',

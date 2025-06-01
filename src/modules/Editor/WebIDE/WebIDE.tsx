@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { WebIDEProps } from './types'
+import { WebIDEProps, IFileSystem } from './types'
 import { eventBus } from './core/EventBus/EventBus'
 import { serviceRegistry } from './core/Services/ServiceRegistry'
 import { commandService } from './core/Services/CommandService'
@@ -22,7 +22,6 @@ export const WebIDE: React.FC<WebIDEProps> = ({
     'collaboration',
     'plugin-manager'
   ],
-  theme = 'dark',
   enabledFeatures = {
     fileExplorer: true,
     terminal: false,
@@ -50,17 +49,7 @@ export const WebIDE: React.FC<WebIDEProps> = ({
   const currentUser = useDataStore((state) => state.currentUser)
 
   // 初始化 WebIDE
-  useEffect(() => {
-    // 只有在用户已登录时才进行初始化
-    if (currentUser) {
-      initializeWebIDE()
-    } else {
-      console.log('[WebIDE] Waiting for user authentication...')
-      setError('等待用户认证...')
-    }
-  }, [projectPath, currentUser]) // 添加 currentUser 作为依赖
-
-  const initializeWebIDE = async () => {
+  const initializeWebIDE = React.useCallback(async () => {
     try {
       console.log('[WebIDE] Initializing WebIDE for user:', currentUser?.username)
       setError('')
@@ -100,19 +89,34 @@ export const WebIDE: React.FC<WebIDEProps> = ({
       serviceRegistry.register('ui', uiProvider)
 
       // 4. 初始化插件管理器（创建一个假的文件系统接口用于兼容）
-      const mockFileSystem = {
-        readFile: () => Promise.resolve(new Uint8Array()),
+      const mockFileSystem: IFileSystem = {
+        readFile: () => Promise.resolve(Buffer.from('')),
         writeFile: () => Promise.resolve(),
+        deleteFile: () => Promise.resolve(),
         exists: () => Promise.resolve(false),
         mkdir: () => Promise.resolve(),
+        rmdir: () => Promise.resolve(),
         readdir: () => Promise.resolve([]),
-        stat: () => Promise.resolve({} as any),
-        watch: () => ({} as any),
-        initialize: () => Promise.resolve()
+        stat: () => Promise.resolve({
+          isFile: () => true,
+          isDirectory: () => false,
+          size: 0,
+          mtime: new Date(),
+          ctime: new Date()
+        }),
+        watch: () => ({ dispose: () => {} }),
+        join: (...paths: string[]) => paths.join('/'),
+        dirname: (path: string) => path.split('/').slice(0, -1).join('/'),
+        basename: (path: string) => path.split('/').pop() || '',
+        extname: (path: string) => {
+          const base = path.split('/').pop() || ''
+          const dotIndex = base.lastIndexOf('.')
+          return dotIndex > 0 ? base.substring(dotIndex) : ''
+        }
       }
 
       pluginManagerRef.current = new PluginManager(
-        mockFileSystem as any, // 提供兼容的文件系统接口
+        mockFileSystem, // 提供兼容的文件系统接口
         eventBus,
         serviceRegistry,
         commandService,
@@ -138,7 +142,17 @@ export const WebIDE: React.FC<WebIDEProps> = ({
       setError(errorMessage)
       onError?.(err instanceof Error ? err : new Error(errorMessage))
     }
-  }
+  }, [currentUser, projectId, plugins, onReady, onError])
+
+  useEffect(() => {
+    // 只有在用户已登录时才进行初始化
+    if (currentUser) {
+      initializeWebIDE()
+    } else {
+      console.log('[WebIDE] Waiting for user authentication...')
+      setError('等待用户认证...')
+    }
+  }, [projectPath, currentUser, initializeWebIDE]) // 添加 initializeWebIDE 作为依赖
 
   // 加载插件
   const loadPlugins = async (pluginIds: string[]) => {
@@ -208,16 +222,20 @@ export const WebIDE: React.FC<WebIDEProps> = ({
               title: 'Explain LaTeX Error'
             }
           ],
-          viewContainers: [{
-            id: 'aiAssistant',
-            title: 'AI Assistant',
-            icon: 'robot'
-          }],
-          views: [{
-            id: 'aiAssistant.chat',
-            name: 'AI Chat',
-            viewContainer: 'aiAssistant'
-          }]
+          viewContainers: {
+            activitybar: [{
+              id: 'aiAssistant',
+              title: 'AI Assistant',
+              icon: 'robot'
+            }]
+          },
+          views: {
+            activitybar: [{
+              id: 'aiAssistant.chat',
+              name: 'AI Chat',
+              viewContainer: 'aiAssistant'
+            }]
+          }
         }
       }
     }
@@ -260,11 +278,13 @@ export const WebIDE: React.FC<WebIDEProps> = ({
               title: 'Compile and Preview'
             }
           ],
-          viewContainers: [{
-            id: 'latexCompiler',
-            title: 'LaTeX Compiler',
-            icon: 'terminal'
-          }]
+          viewContainers: {
+            activitybar: [{
+              id: 'latexCompiler',
+              title: 'LaTeX Compiler',
+              icon: 'terminal'
+            }]
+          }
         }
       }
     }
@@ -288,11 +308,13 @@ export const WebIDE: React.FC<WebIDEProps> = ({
               title: 'Toggle Collaboration Panel'
             }
           ],
-          viewContainers: [{
-            id: 'collaboration',
-            title: 'Collaboration',
-            icon: 'people'
-          }]
+          viewContainers: {
+            activitybar: [{
+              id: 'collaboration',
+              title: 'Collaboration',
+              icon: 'people'
+            }]
+          }
         }
       }
     }

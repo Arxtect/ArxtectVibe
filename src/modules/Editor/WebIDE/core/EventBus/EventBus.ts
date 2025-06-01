@@ -94,7 +94,7 @@ export class EventBus implements IEventBus {
   /**
    * 移除事件监听器
    */
-  off(event: string, listener: Function): void {
+  off(event: string, listener: (data: any) => void): void {
     console.log(`[EventBus] Removing listener for: ${event}`)
     
     // 从普通监听器中移除

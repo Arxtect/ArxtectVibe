@@ -131,11 +131,8 @@ export const CompilerOutputViewComponent: React.FC<CompilerOutputViewProps> = ({
 export class CompilerOutputView {
   private logs: CompileLogEntry[]
 
-  constructor(
-    private webviewView: any,
-    initialLogs: CompileLogEntry[] = []
-  ) {
-    this.logs = initialLogs
+  constructor() {
+    this.logs = []
     this.render()
   }
 

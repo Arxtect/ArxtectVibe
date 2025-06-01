@@ -804,7 +804,7 @@ const mockDataBridgeImpl: IDataBridge = {
       throw new Error('项目不存在')
     }
 
-    let file = project.files.find(f => f.name === filePath)
+    const file = project.files.find(f => f.name === filePath)
     if (file) {
       // 更新现有文件
       file.content = content

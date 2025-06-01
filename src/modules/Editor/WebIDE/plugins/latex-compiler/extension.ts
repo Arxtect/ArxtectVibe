@@ -1,4 +1,4 @@
-import { IPlugin, IPluginContext, Disposable } from '../../types'
+import { IPlugin, IPluginContext } from '../../types'
 import { CompilerOutputView, CompilerOutputViewComponent } from './CompilerOutputView'
 import React from 'react'
 
@@ -170,7 +170,7 @@ export class LaTeXCompilerPlugin implements IPlugin {
     this.addLog('info', 'Logs exported successfully')
   }
 
-  private async performCompilation(documentUri: string): Promise<CompileResult> {
+  private async performCompilation(_documentUri: string): Promise<CompileResult> {
     // 模拟编译延迟和过程
     await new Promise(resolve => setTimeout(resolve, 2000))
     

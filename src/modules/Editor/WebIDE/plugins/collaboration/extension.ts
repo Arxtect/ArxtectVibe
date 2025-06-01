@@ -1,4 +1,4 @@
-import { IPlugin, IPluginContext, Disposable } from '../../types'
+import { IPlugin, IPluginContext } from '../../types'
 import { CollaborationPanel } from './CollaborationPanel'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
@@ -259,7 +259,7 @@ export class CollaborationPlugin implements IPlugin {
 
     const users: CollaborationUser[] = []
     
-    awareness.getStates().forEach((state, clientId) => {
+    awareness.getStates().forEach((state, _clientId) => {
       const user = state.user
       if (user) {
         users.push({

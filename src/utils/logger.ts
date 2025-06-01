@@ -30,14 +30,12 @@ class Logger {
 
   debug(message: string, ...args: unknown[]): void {
     if (this.shouldLog('debug') && import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.log(this.formatMessage('debug', message), ...args)
     }
   }
 
   info(message: string, ...args: unknown[]): void {
     if (this.shouldLog('info') && import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.log(this.formatMessage('info', message), ...args)
     }
   }

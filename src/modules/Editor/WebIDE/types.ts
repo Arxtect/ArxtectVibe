@@ -143,7 +143,7 @@ export interface IEventBus {
   emit<T>(event: string, data: T): void
   on<T>(event: string, listener: (data: T) => void): Disposable
   once<T>(event: string, listener: (data: T) => void): Disposable
-  off(event: string, listener: Function): void
+  off(event: string, listener: (data: any) => void): void
 }
 
 // ========== 命令系统 ==========
