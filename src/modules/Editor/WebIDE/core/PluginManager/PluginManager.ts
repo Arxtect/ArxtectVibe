@@ -49,17 +49,38 @@ export class PluginManager implements IPluginManager {
     try {
       // 检查依赖
       await this.checkDependencies(manifest)
+      console.log(`[PluginManager] Dependencies checked for ${manifest.id}`)
       
       // 动态导入插件
       const plugin = await this.importPlugin(manifest)
+      console.log(`[PluginManager] Plugin ${manifest.id} imported:`, {
+        id: plugin.id,
+        name: plugin.name,
+        version: plugin.version,
+        hasActivate: typeof plugin.activate === 'function',
+        hasDeactivate: typeof plugin.deactivate === 'function'
+      })
       
       // 存储插件
       this.plugins.set(manifest.id, plugin)
+      console.log(`[PluginManager] Plugin ${manifest.id} stored. Current plugins:`, Array.from(this.plugins.keys()))
       
       console.log(`[PluginManager] Plugin ${manifest.id} loaded successfully`)
       
       // 发送插件加载事件
       this.eventBus.emit('plugin.loaded', { plugin, manifest })
+      
+      // 添加短暂延迟，看看是否有异步代码在清理插件
+      await new Promise(resolve => setTimeout(resolve, 10))
+      
+      // 再次检查插件是否还在
+      if (!this.plugins.has(manifest.id)) {
+        console.error(`[PluginManager] CRITICAL: Plugin ${manifest.id} disappeared after loading!`)
+        console.error(`[PluginManager] Current plugins after disappearance:`, Array.from(this.plugins.keys()))
+        throw new Error(`Plugin ${manifest.id} disappeared after loading`)
+      }
+      
+      console.log(`[PluginManager] Plugin ${manifest.id} verified to still exist after loading`)
       
       return plugin
     } catch (error) {
@@ -77,11 +98,38 @@ export class PluginManager implements IPluginManager {
    */
   async activatePlugin(id: string): Promise<void> {
     console.log(`[PluginManager] Activating plugin: ${id}`)
+    console.log(`[PluginManager] Available plugins:`, Array.from(this.plugins.keys()))
+    console.log(`[PluginManager] Plugins Map size:`, this.plugins.size)
+    console.log(`[PluginManager] Checking specific plugin...`)
+    
+    // 检查插件映射的完整性
+    const allKeys = Array.from(this.plugins.keys())
+    for (const key of allKeys) {
+      const plugin = this.plugins.get(key)
+      console.log(`[PluginManager] Plugin '${key}':`, {
+        exists: !!plugin,
+        id: plugin?.id,
+        name: plugin?.name
+      })
+    }
     
     const plugin = this.plugins.get(id)
     if (!plugin) {
+      console.error(`[PluginManager] Plugin ${id} not found in plugins map. Available:`, Array.from(this.plugins.keys()))
+      console.error(`[PluginManager] Map debugging info:`, {
+        mapSize: this.plugins.size,
+        hasId: this.plugins.has(id),
+        directGet: this.plugins.get(id),
+        allEntries: Array.from(this.plugins.entries()).map(([k, v]) => ({ key: k, pluginId: v.id, pluginName: v.name }))
+      })
       throw new Error(`Plugin ${id} not found`)
     }
+
+    console.log(`[PluginManager] Found plugin ${id}:`, {
+      id: plugin.id,
+      name: plugin.name,
+      version: plugin.version
+    })
 
     if (this.activePlugins.has(id)) {
       console.warn(`[PluginManager] Plugin ${id} is already active`)
@@ -92,9 +140,11 @@ export class PluginManager implements IPluginManager {
       // 创建插件上下文
       const context = this.createPluginContext(plugin)
       this.pluginContexts.set(id, context)
+      console.log(`[PluginManager] Plugin context created for ${id}`)
       
       // 激活插件
       await plugin.activate(context)
+      console.log(`[PluginManager] Plugin ${id} activate() method completed`)
       
       // 标记为已激活
       this.activePlugins.add(id)
@@ -248,30 +298,90 @@ export class PluginManager implements IPluginManager {
    * 导入插件模块
    */
   private async importPlugin(manifest: IPluginManifest): Promise<IPlugin> {
-    // 在实际实现中，这里会动态导入插件模块
-    // 目前使用静态导入方式
+    console.log(`[PluginManager] Importing plugin: ${manifest.id}`)
     
-    if (manifest.id === 'pdf-viewer') {
-      const { pdfViewerPlugin } = await import('../../plugins/pdf-viewer/extension')
-      return pdfViewerPlugin
+    try {
+      switch (manifest.id) {
+        case 'pdf-viewer': {
+          console.log(`[PluginManager] Loading pdf-viewer plugin...`)
+          const module = await import('../../plugins/pdf-viewer/extension') as any
+          console.log(`[PluginManager] pdf-viewer module loaded:`, { 
+            hasDefault: !!module.default,
+            hasPdfViewerPlugin: !!module.pdfViewerPlugin,
+            keys: Object.keys(module)
+          })
+          
+          if (!module.pdfViewerPlugin) {
+            throw new Error('pdfViewerPlugin not found in module exports')
+          }
+          
+          return module.pdfViewerPlugin
+        }
+        
+        case 'ai-assistant': {
+          console.log(`[PluginManager] Loading ai-assistant plugin...`)
+          const module = await import('../../plugins/ai-assistant/extension') as any
+          console.log(`[PluginManager] ai-assistant module loaded:`, { 
+            hasDefault: !!module.default,
+            keys: Object.keys(module)
+          })
+          
+          if (!module.default) {
+            throw new Error('default export not found in ai-assistant module')
+          }
+          
+          return module.default
+        }
+        
+        case 'monaco-editor':
+        case 'latex-compiler':
+        case 'collaboration':
+        case 'plugin-manager': {
+          // 为这些插件创建占位实现
+          console.log(`[PluginManager] Creating placeholder for ${manifest.id}`)
+          return this.createPlaceholderPlugin(manifest.id)
+        }
+        
+        default:
+          throw new Error(`Unknown plugin: ${manifest.id}`)
+      }
+    } catch (error) {
+      console.error(`[PluginManager] Failed to import plugin ${manifest.id}:`, error)
+      console.error(`[PluginManager] Error details:`, {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      
+      // 重新抛出错误，不要创建占位插件
+      throw new Error(`Failed to import plugin ${manifest.id}: ${error instanceof Error ? error.message : String(error)}`)
     }
-    
-    if (manifest.id === 'ai-assistant') {
-      const { default: AIAssistantPlugin } = await import('../../plugins/ai-assistant/extension')
-      return AIAssistantPlugin
+  }
+
+  /**
+   * 创建占位插件
+   */
+  private createPlaceholderPlugin(id: string): IPlugin {
+    return {
+      id,
+      name: `${id} (Placeholder)`,
+      version: '1.0.0',
+      description: `Placeholder implementation for ${id} plugin`,
+      
+      async activate(context: IPluginContext): Promise<void> {
+        console.log(`[PlaceholderPlugin] ${id} activated (placeholder)`)
+        // 注册一个基本命令作为示例
+        context.subscriptions.push(
+          context.commands.registerCommand(`${id}.info`, () => {
+            context.ui.showMessage(`${id} plugin is using placeholder implementation`, 'info')
+          })
+        )
+      },
+      
+      async deactivate(): Promise<void> {
+        console.log(`[PlaceholderPlugin] ${id} deactivated (placeholder)`)
+      }
     }
-    
-    if (manifest.id === 'monaco-editor') {
-      const { MonacoEditorPlugin } = await import('../../plugins/monaco-editor/extension')
-      return new MonacoEditorPlugin()
-    }
-    
-    if (manifest.id === 'plugin-manager') {
-      const { PluginManagerPlugin } = await import('../../plugins/plugin-manager/extension')
-      return new PluginManagerPlugin()
-    }
-    
-    throw new Error(`Unknown plugin: ${manifest.id}`)
   }
 
   /**

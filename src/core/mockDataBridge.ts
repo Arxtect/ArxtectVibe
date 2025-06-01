@@ -12,25 +12,35 @@ import { IDataBridge, createDataBridge } from './dataBridgeInterface'
 const simulateNetworkDelay = () => 
   new Promise(resolve => setTimeout(resolve, Math.random() * 800 + 200))
 
-// 全局状态管理 - 简化版本用于 Mock 模式
-let currentUser: User | null = null
-let projects: Project[] = []
-let currentProject: Project | null = null
-let compileLogs: CompileLogEntry[] = []
+// DataStore引用 - 将通过registerDataStore方法设置
+let dataStoreRef: any = null
 
-const useDataStore = {
-  getState: () => ({
-    currentUser,
-    projects,
-    currentProject,
-    compileLogs,
-    setLoading: (_: boolean) => {}, // Mock 模式下忽略 loading 状态
-    setCurrentUser: (user: User | null) => { currentUser = user },
-    setProjects: (projectList: Project[]) => { projects = projectList },
-    setCurrentProject: (project: Project | null) => { currentProject = project },
-    addCompileLog: (log: CompileLogEntry) => { compileLogs.push(log) },
-    clearCompileLogs: () => { compileLogs = [] }
-  })
+// 注册DataStore引用的函数
+export const registerDataStore = (store: any) => {
+  dataStoreRef = store
+}
+
+// 获取DataStore引用
+const getDataStore = () => {
+  if (!dataStoreRef) {
+    console.warn('[MockDataBridge] DataStore not registered yet')
+    return null
+  }
+  return dataStoreRef
+}
+
+// Helper函数：安全地更新DataStore状态
+const updateDataStore = (updater: (store: any) => void) => {
+  const store = getDataStore()
+  if (store) {
+    updater(store)
+  }
+}
+
+// Helper函数：安全地获取当前用户
+const getCurrentUser = () => {
+  const store = getDataStore()
+  return store ? store.getState().currentUser : null
 }
 
 // 模拟数据
@@ -52,62 +62,6 @@ const mockUsers: User[] = [
     username: 'bob',
     displayName: 'Bob Chen', 
     email: 'bob@example.com'
-  }
-]
-
-const mockFiles: FileEntry[] = [
-  {
-    fileId: 'file1',
-    name: 'main.tex',
-    content: `\\documentclass{article}
-\\usepackage[utf8]{inputenc}
-\\usepackage{amsmath}
-\\usepackage{amsfonts}
-\\usepackage{amssymb}
-
-\\title{示例 LaTeX 文档}
-\\author{Demo User}
-\\date{\\today}
-
-\\begin{document}
-
-\\maketitle
-
-\\section{介绍}
-
-这是一个示例 LaTeX 文档，用于演示协同编辑功能。
-
-\\section{数学公式}
-
-这里是一个数学公式：
-\\begin{equation}
-    E = mc^2
-\\end{equation}
-
-\\section{列表}
-
-\\begin{itemize}
-    \\item 第一项
-    \\item 第二项
-    \\item 第三项
-\\end{itemize}
-
-\\end{document}`,
-    isMain: true
-  },
-  {
-    fileId: 'file2',
-    name: 'chapter1.tex',
-    content: `\\chapter{第一章}
-
-\\section{概述}
-
-这是第一章的内容。
-
-\\section{详细信息}
-
-这里包含更多详细信息。`,
-    isMain: false
   }
 ]
 
@@ -199,26 +153,37 @@ const createDefaultLatexProject = (userId: string, username: string): Project =>
 
 这里展示一些数学公式的用法：
 
-单行公式：
+行内公式：$E = mc^2$
+
+行间公式：
 \\begin{equation}
-    E = mc^2
-    \\label{eq:einstein}
+    \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
 \\end{equation}
 
-多行公式：
-\\begin{align}
-    a^2 + b^2 &= c^2 \\\\
-    \\sin^2\\theta + \\cos^2\\theta &= 1
-\\end{align}
-
-行内公式：我们知道 $\\pi \\approx 3.14159$。
+矩阵示例：
+\\begin{equation}
+    A = \\begin{pmatrix}
+        a_{11} & a_{12} & \\cdots & a_{1n} \\\\
+        a_{21} & a_{22} & \\cdots & a_{2n} \\\\
+        \\vdots & \\vdots & \\ddots & \\vdots \\\\
+        a_{m1} & a_{m2} & \\cdots & a_{mn}
+    \\end{pmatrix}
+\\end{equation}`,
+      isMain: false
+    },
+    // 结果章节
+    {
+      fileId: `results_${userId}`,
+      name: 'sections/results.tex',
+      content: `\\section{结果}
 
 \\subsection{表格示例}
+
+下表展示了一些示例数据：
 
 \\begin{table}[h]
 \\centering
 \\caption{示例数据表}
-\\label{tab:example}
 \\begin{tabular}{@{}lcc@{}}
 \\toprule
 项目 & 数值1 & 数值2 \\\\
@@ -230,47 +195,16 @@ C & 3.45 & 6.78 \\\\
 \\end{tabular}
 \\end{table}
 
-如表~\\ref{tab:example}所示，这是一个标准的三线表格式。`,
-      isMain: false
-    },
-    // 结果章节
-    {
-      fileId: `results_${userId}`,
-      name: 'sections/results.tex',
-      content: `\\section{结果}
+\\subsection{图片示例}
 
-\\subsection{图片插入示例}
+如果您有图片文件，可以使用以下代码插入：
 
-% 注意：实际使用时需要将图片文件放在正确的路径
 \\begin{figure}[h]
 \\centering
-% \\includegraphics[width=0.8\\textwidth]{figures/example.png}
-\\rule{8cm}{5cm} % 占位符，实际使用时替换为includegraphics
-\\caption{示例图片（占位符）}
+% \\includegraphics[width=0.8\\textwidth]{your-image.png}
+\\caption{图片标题}
 \\label{fig:example}
-\\end{figure}
-
-图~\\ref{fig:example}展示了一个示例图片的插入方法。
-
-\\subsection{列表示例}
-
-编号列表：
-\\begin{enumerate}
-    \\item 第一项
-    \\item 第二项
-        \\begin{enumerate}
-            \\item 子项目A
-            \\item 子项目B
-        \\end{enumerate}
-    \\item 第三项
-\\end{enumerate}
-
-无编号列表：
-\\begin{itemize}
-    \\item 要点一
-    \\item 要点二
-    \\item 要点三
-\\end{itemize}`,
+\\end{figure}`,
       isMain: false
     },
     // 结论章节
@@ -279,59 +213,59 @@ C & 3.45 & 6.78 \\\\
       name: 'sections/conclusion.tex',
       content: `\\section{结论}
 
-本文档展示了一个完整的LaTeX项目模板结构，包含：
+在本文档中，我们展示了LaTeX的基本用法，包括：
 
-\\begin{itemize}
-    \\item 文档的基本配置和包引用
-    \\item 模块化的章节组织
-    \\item 数学公式、表格、图片的标准用法
-    \\item 参考文献的管理方式
-\\end{itemize}
-
-这个模板可以作为大多数学术文档、报告或论文的起点。
+\\begin{enumerate}
+    \\item 文档结构的组织
+    \\item 数学公式的排版
+    \\item 表格和图片的插入
+    \\item 参考文献的管理
+\\end{enumerate}
 
 \\subsection{后续工作}
 
-您可以基于这个模板：
-\\begin{enumerate}
-    \\item 根据需要添加或删除章节
-    \\item 调整文档类型和格式设置
-    \\item 添加更多的LaTeX包以支持特定功能
-    \\item 完善参考文献数据库
-\\end{enumerate}
+您可以：
+\\begin{itemize}
+    \\item 根据需要添加更多章节
+    \\item 修改文档样式和格式
+    \\item 添加自定义命令和宏
+    \\item 使用更多LaTeX包来扩展功能
+\\end{itemize}
 
-有关更多LaTeX使用技巧，请参考相关文档~\\cite{latex2023}。`,
+\\subsection{致谢}
+
+感谢使用本LaTeX模板！`,
       isMain: false
     },
     // 参考文献文件
     {
       fileId: `bib_${userId}`,
       name: 'references.bib',
-      content: `@book{latex2023,
-    title={LaTeX: A Document Preparation System},
-    author={Leslie Lamport},
-    year={2023},
-    publisher={Addison-Wesley},
-    edition={3rd}
+      content: `@article{einstein1905,
+  title={Zur Elektrodynamik bewegter K{\"o}rper},
+  author={Einstein, Albert},
+  journal={Annalen der physik},
+  volume={17},
+  number={10},
+  pages={891--921},
+  year={1905},
+  publisher={Wiley Online Library}
 }
 
-@article{example2024,
-    title={An Example Article},
-    author={Smith, John and Doe, Jane},
-    journal={Journal of Examples},
-    volume={42},
-    number={1},
-    pages={123--456},
-    year={2024},
-    publisher={Example Publisher}
+@book{knuth1997art,
+  title={The art of computer programming},
+  author={Knuth, Donald Ervin},
+  volume={1},
+  year={1997},
+  publisher={Addison-wesley}
 }
 
-@misc{web2024,
-    title={Online LaTeX Resources},
-    author={LaTeX Community},
-    year={2024},
-    url={https://www.latex-project.org/},
-    note={Accessed: 2024-01-01}
+@inproceedings{lamport1986latex,
+  title={LaTeX: a document preparation system},
+  author={Lamport, Leslie},
+  booktitle={User's guide and reference manual},
+  year={1986},
+  organization={Addison-Wesley}
 }`,
       isMain: false
     },
@@ -339,93 +273,133 @@ C & 3.45 & 6.78 \\\\
     {
       fileId: `config_${userId}`,
       name: 'config/packages.tex',
-      content: `% 这个文件包含额外的包配置
-% 可以根据项目需要添加特定的包和设置
+      content: `% 自定义包配置文件
+% 在这里添加额外的包和配置
 
-% 中文支持（如需要）
-% \\usepackage[UTF8]{ctex}
+% 中文支持（如果需要）
+% \\usepackage{ctex}
 
-% 代码高亮（如需要）
+% 代码高亮
 % \\usepackage{listings}
 % \\usepackage{xcolor}
 
-% 算法伪代码（如需要）
-% \\usepackage{algorithm}
-% \\usepackage{algorithmic}
-
-% 更多数学符号（如需要）
-% \\usepackage{mathtools}
-% \\usepackage{amsthm}
-
 % 自定义命令示例
-\\newcommand{\\highlight}[1]{\\textbf{\\color{blue}#1}}
-\\newcommand{\\todo}[1]{\\textbf{\\color{red}TODO: #1}}
+\\newcommand{\\todo}[1]{\\textcolor{red}{\\textbf{TODO: #1}}}
+\\newcommand{\\highlight}[1]{\\textcolor{blue}{\\textbf{#1}}}
 
-% 自定义环境示例
-\\newtheorem{theorem}{定理}[section]
-\\newtheorem{lemma}[theorem]{引理}
-\\newtheorem{definition}[theorem]{定义}`,
+% 数学相关的自定义命令
+\\newcommand{\\R}{\\mathbb{R}}
+\\newcommand{\\N}{\\mathbb{N}}
+\\newcommand{\\Z}{\\mathbb{Z}}
+\\newcommand{\\Q}{\\mathbb{Q}}
+
+% 向量表示
+\\newcommand{\\vect}[1]{\\boldsymbol{#1}}`,
       isMain: false
     }
   ],
   collaborators: [
-    { userId, username, role: 'owner' }
+    { userId, username, role: 'owner' as Role }
   ],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 })
 
-const mockProjects: Project[] = [
-  // Demo用户的默认项目
-  createDefaultLatexProject('user1', 'demo'),
-  // Alice用户的默认项目  
-  createDefaultLatexProject('user2', 'alice'),
-  // Bob用户的默认项目
-  createDefaultLatexProject('user3', 'bob'),
-  // 原有的示例项目保留，作为协作示例
-  {
-    id: 'project1',
-    name: '📝 协作示例论文',
-    ownerId: 'user1',
-    files: [mockFiles[0], mockFiles[1]],
-    collaborators: [
-      { userId: 'user1', username: 'demo', role: 'owner' },
-      { userId: 'user2', username: 'alice', role: 'editor' },
-      { userId: 'user3', username: 'bob', role: 'viewer' }
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 'project2', 
-    name: '🧮 数学作业',
-    ownerId: 'user1',
-    files: [
-      {
-        fileId: 'file3',
-        name: 'homework.tex',
-        content: `\\documentclass{article}
+// 初始化Mock项目数据
+let mockProjects: Project[] = []
+
+// 初始化函数：创建每个用户的默认项目
+const initializeMockData = () => {
+  mockProjects = [
+    createDefaultLatexProject('user1', 'demo'),
+    createDefaultLatexProject('user2', 'alice'),
+    createDefaultLatexProject('user3', 'bob'),
+    // 添加一个示例协作项目
+    {
+      id: 'collab_project',
+      name: '🤝 协作示例项目',
+      ownerId: 'user2',
+      files: [
+        {
+          fileId: 'collab_main',
+          name: 'main.tex',
+          content: `\\documentclass{article}
+\\title{协作项目示例}
+\\author{Alice \\and Bob \\and Demo}
 \\begin{document}
-\\title{数学作业}
 \\maketitle
 
-\\section{问题1}
-证明 $\\sqrt{2}$ 是无理数。
+这是一个多人协作的示例项目。
 
-\\section{问题2}
-计算积分 $\\int_0^1 x^2 dx$。
+\\section{Alice的章节}
+% Alice 的内容...
+
+\\section{Bob的章节}  
+% Bob 的内容...
+
+\\section{Demo的章节}
+% Demo 的内容...
 
 \\end{document}`,
-        isMain: true
+          isMain: true
+        }
+      ],
+      collaborators: [
+        { userId: 'user2', username: 'alice', role: 'owner' },
+        { userId: 'user3', username: 'bob', role: 'editor' },
+        { userId: 'user1', username: 'demo', role: 'viewer' }
+      ],
+      createdAt: new Date(Date.now() - 86400000).toISOString(), // 1天前
+      updatedAt: new Date().toISOString()
+    }
+  ]
+}
+
+// 初始化数据
+initializeMockData()
+
+// Mock状态恢复：从localStorage恢复用户状态
+const restoreMockState = () => {
+  try {
+    const savedUser = localStorage.getItem('mock_current_user')
+    if (savedUser) {
+      const user: User = JSON.parse(savedUser)
+      console.log('[MockDataBridge] Restoring user from localStorage:', user.username)
+      
+      // 通过统一的DataStore恢复用户状态
+      const store = getDataStore()
+      if (store) {
+        store.getState().setCurrentUser(user)
       }
-    ],
-    collaborators: [
-      { userId: 'user1', username: 'demo', role: 'owner' }
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    }
+  } catch (error) {
+    console.warn('[MockDataBridge] Failed to restore user state:', error)
+    localStorage.removeItem('mock_current_user')
   }
-]
+}
+
+// 初始化Mock状态
+const initializeMockState = () => {
+  try {
+    const store = getDataStore()
+    const isMockMode = store.getState().isMockMode
+    
+    if (isMockMode) {
+      restoreMockState()
+      console.log('[MockDataBridge] Mock state initialized')
+    }
+  } catch (error) {
+    console.warn('[MockDataBridge] Failed to initialize mock state:', error)
+  }
+}
+
+// 在模块加载时，如果是Mock模式则立即初始化
+setTimeout(() => {
+  const isMockMode = localStorage.getItem('mockMode') === 'true'
+  if (isMockMode) {
+    initializeMockState()
+  }
+}, 100)
 
 // Mock DataBridge 实现
 const mockDataBridgeImpl: IDataBridge = {
@@ -458,7 +432,11 @@ const mockDataBridgeImpl: IDataBridge = {
       mockUsers.push(user)
     }
     
-    useDataStore.getState().setCurrentUser(user)
+    // 通过统一的DataStore管理状态
+    const store = getDataStore()
+    if (store) {
+      store.getState().setCurrentUser(user)
+    }
     
     // 保存用户状态到localStorage (Mock模式)
     localStorage.setItem('mock_current_user', JSON.stringify(user))
@@ -471,10 +449,15 @@ const mockDataBridgeImpl: IDataBridge = {
     await simulateNetworkDelay()
     
     console.log('[MockDataBridge] User logout')
-    useDataStore.getState().setCurrentUser(null)
     
     // 清除保存的用户状态
     localStorage.removeItem('mock_current_user')
+    
+    // 通过统一的DataStore清理状态
+    const store = getDataStore()
+    if (store) {
+      store.getState().logout()
+    }
     
     toast.success('已退出登录 (Mock模式)')
   },
@@ -483,22 +466,35 @@ const mockDataBridgeImpl: IDataBridge = {
   async fetchProjects(): Promise<Project[]> {
     await new Promise(resolve => setTimeout(resolve, 300))
     
-    // 获取当前登录用户
-    const { useDataStore } = await import('./dataBridge')
-    const currentUser = useDataStore.getState().currentUser
+    // 通过统一的DataStore获取当前用户
+    const store = getDataStore()
+    if (!store) {
+      console.log('[MockDataBridge] fetchProjects - DataStore not available')
+      return []
+    }
+    
+    const currentUser = store.getState().currentUser
+    
+    console.log('[MockDataBridge] fetchProjects - currentUser:', currentUser)
+    console.log('[MockDataBridge] fetchProjects - total mockProjects:', mockProjects.length)
     
     if (!currentUser) {
+      console.log('[MockDataBridge] fetchProjects - no current user, returning empty array')
       return []
     }
     
     // 返回用户可以访问的项目（拥有的或作为协作者的）
-    const userProjects = mockProjects.filter(project => 
-      project.ownerId === currentUser.id || 
-      project.collaborators.some(collab => collab.userId === currentUser.id)
-    )
+    const userProjects = mockProjects.filter(project => {
+      const isOwner = project.ownerId === currentUser.id
+      const isCollaborator = project.collaborators.some(collab => collab.userId === currentUser.id)
+      console.log(`[MockDataBridge] Project ${project.name} - isOwner: ${isOwner}, isCollaborator: ${isCollaborator}`)
+      return isOwner || isCollaborator
+    })
     
-    // 重要：更新全局状态中的项目列表
-    useDataStore.getState().setProjects(userProjects)
+    console.log('[MockDataBridge] fetchProjects - user accessible projects:', userProjects.length)
+    
+    // 通过统一的DataStore更新项目列表
+    store.getState().setProjects(userProjects)
     
     return userProjects
   },
@@ -506,9 +502,13 @@ const mockDataBridgeImpl: IDataBridge = {
   async createProject(name: string, _description?: string): Promise<Project> {
     await new Promise(resolve => setTimeout(resolve, 400))
     
-    // 获取当前登录用户
-    const { useDataStore } = await import('./dataBridge')
-    const currentUser = useDataStore.getState().currentUser
+    // 通过统一的DataStore获取当前用户
+    const store = getDataStore()
+    if (!store) {
+      throw new Error('系统未初始化')
+    }
+    
+    const currentUser = store.getState().currentUser
     
     if (!currentUser) {
       throw new Error('用户未登录')
@@ -557,9 +557,11 @@ const mockDataBridgeImpl: IDataBridge = {
       throw new Error('项目未找到')
     }
     
-    // 重要：更新全局状态中的当前项目
-    const { useDataStore } = await import('./dataBridge')
-    useDataStore.getState().setCurrentProject(project)
+    // 通过统一的DataStore更新当前项目
+    const store = getDataStore()
+    if (store) {
+      store.getState().setCurrentProject(project)
+    }
     
     return project
   },
@@ -587,9 +589,9 @@ const mockDataBridgeImpl: IDataBridge = {
         file.content = content
         project.updatedAt = new Date().toISOString()
         
-        // 更新全局状态中的当前项目
-        const { useDataStore } = await import('./dataBridge')
-        useDataStore.getState().setCurrentProject(project)
+        // 通过统一的DataStore更新当前项目
+        const store = getDataStore()
+        store.getState().setCurrentProject(project)
         
         toast.success('文件保存成功 (Mock模式)')
       }
@@ -614,9 +616,9 @@ const mockDataBridgeImpl: IDataBridge = {
     project.files.push(newFile)
     project.updatedAt = new Date().toISOString()
     
-    // 更新全局状态中的当前项目
-    const { useDataStore } = await import('./dataBridge')
-    useDataStore.getState().setCurrentProject(project)
+    // 通过统一的DataStore更新当前项目
+    const store = getDataStore()
+    store.getState().setCurrentProject(project)
     
     toast.success('文件创建成功 (Mock模式)')
     return newFile
@@ -632,9 +634,9 @@ const mockDataBridgeImpl: IDataBridge = {
         project.files.splice(index, 1)
         project.updatedAt = new Date().toISOString()
         
-        // 更新全局状态中的当前项目
-        const { useDataStore } = await import('./dataBridge')
-        useDataStore.getState().setCurrentProject(project)
+        // 通过统一的DataStore更新当前项目
+        const store = getDataStore()
+        store.getState().setCurrentProject(project)
         
         toast.success('文件删除成功 (Mock模式)')
       }
@@ -667,9 +669,9 @@ const mockDataBridgeImpl: IDataBridge = {
       role
     })
     
-    // 更新全局状态中的当前项目
-    const { useDataStore } = await import('./dataBridge')
-    useDataStore.getState().setCurrentProject(project)
+    // 通过统一的DataStore更新当前项目
+    const store = getDataStore()
+    store.getState().setCurrentProject(project)
     
     toast.success('协作者添加成功 (Mock模式)')
   },
@@ -683,9 +685,9 @@ const mockDataBridgeImpl: IDataBridge = {
       if (member) {
         member.role = newRole
         
-        // 更新全局状态中的当前项目
-        const { useDataStore } = await import('./dataBridge')
-        useDataStore.getState().setCurrentProject(project)
+        // 通过统一的DataStore更新当前项目
+        const store = getDataStore()
+        store.getState().setCurrentProject(project)
         
         toast.success('权限更新成功 (Mock模式)')
       }
@@ -701,9 +703,9 @@ const mockDataBridgeImpl: IDataBridge = {
       if (index !== -1) {
         project.collaborators.splice(index, 1)
         
-        // 更新全局状态中的当前项目
-        const { useDataStore } = await import('./dataBridge')
-        useDataStore.getState().setCurrentProject(project)
+        // 通过统一的DataStore更新当前项目
+        const store = getDataStore()
+        store.getState().setCurrentProject(project)
         
         toast.success('协作者移除成功 (Mock模式)')
       }
@@ -712,12 +714,14 @@ const mockDataBridgeImpl: IDataBridge = {
 
   // ========== 编译日志相关 ==========
   addCompileLog(log: CompileLogEntry): void {
-    // Mock模式下的日志处理
+    // 通过统一的DataStore管理编译日志
+    updateDataStore(store => store.getState().addCompileLog(log))
     console.log('Mock compile log:', log)
   },
 
   clearCompileLogs(): void {
-    useDataStore.getState().clearCompileLogs()
+    // 通过统一的DataStore清理编译日志
+    updateDataStore(store => store.getState().clearCompileLogs())
     console.log('[MockDataBridge] Compile logs cleared')
   },
 
@@ -727,7 +731,7 @@ const mockDataBridgeImpl: IDataBridge = {
     
     console.log(`[MockDataBridge] Getting files for project: ${projectId}`)
     
-    const currentUser = useDataStore.getState().currentUser
+    const currentUser = getCurrentUser()
     if (!currentUser) {
       throw new Error('用户未登录')
     }
@@ -770,7 +774,7 @@ const mockDataBridgeImpl: IDataBridge = {
     
     console.log(`[MockDataBridge] Reading file: ${projectId}/${filePath}`)
     
-    const currentUser = useDataStore.getState().currentUser
+    const currentUser = getCurrentUser()
     if (!currentUser) {
       throw new Error('用户未登录')
     }
@@ -794,7 +798,7 @@ const mockDataBridgeImpl: IDataBridge = {
     
     console.log(`[MockDataBridge] Writing file: ${projectId}/${filePath}`)
     
-    const currentUser = useDataStore.getState().currentUser
+    const currentUser = getCurrentUser()
     if (!currentUser) {
       throw new Error('用户未登录')
     }
@@ -828,7 +832,7 @@ const mockDataBridgeImpl: IDataBridge = {
     
     console.log(`[MockDataBridge] Checking if exists: ${projectId}/${path}`)
     
-    const currentUser = useDataStore.getState().currentUser
+    const currentUser = getCurrentUser()
     if (!currentUser) {
       return false
     }
@@ -852,7 +856,7 @@ const mockDataBridgeImpl: IDataBridge = {
   },
 
   getProjectPath(projectId: string): string {
-    const currentUser = useDataStore.getState().currentUser
+    const currentUser = getCurrentUser()
     if (!currentUser) {
       return `/projects/guest/${projectId}`
     }
@@ -868,7 +872,7 @@ const mockDataBridgeImpl: IDataBridge = {
     
     console.log(`[MockDataBridge] Initializing project space: ${projectId}`)
     
-    const currentUser = useDataStore.getState().currentUser
+    const currentUser = getCurrentUser()
     if (!currentUser) {
       throw new Error('用户未登录')
     }
@@ -886,17 +890,20 @@ const mockDataBridgeImpl: IDataBridge = {
       
       mockProjects.push(project)
       
-      // 更新全局状态
-      useDataStore.getState().setProjects([...mockProjects])
-      useDataStore.getState().setCurrentProject(project)
+      // 通过统一的DataStore更新状态
+      updateDataStore(store => store.getState().setCurrentProject(project))
+      await this.fetchProjects() // 刷新项目列表
       
       toast.success('项目空间初始化完成')
     } else {
       console.log(`[MockDataBridge] Project already exists: ${projectId}`)
-      useDataStore.getState().setCurrentProject(project)
+      updateDataStore(store => store.getState().setCurrentProject(project))
     }
   }
 }
 
 // 导出类型安全的Mock DataBridge
-export const mockDataBridge = createDataBridge(mockDataBridgeImpl) 
+export const mockDataBridge = createDataBridge(mockDataBridgeImpl)
+
+// 导出Mock状态初始化函数
+export { initializeMockState } 

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import axios, { AxiosError } from 'axios'
 import toast from 'react-hot-toast'
 import { User, Project, FileEntry, Role, CompileLogEntry } from '@/types'
-import { mockDataBridge } from './mockDataBridge'
+import { mockDataBridge, registerDataStore } from './mockDataBridge'
 import { IDataBridge, createDataBridge } from './dataBridgeInterface'
 
 // API 配置
@@ -88,30 +88,19 @@ export const useDataStore = create<DataStore>((set) => ({
     compileLogs: [...state.compileLogs, log] 
   })),
   clearCompileLogs: () => set({ compileLogs: [] }),
-  setMockMode: (isMockMode) => {
-    // 保存新的模式设置
+  setMockMode: (isMockMode: boolean) => {
+    set({ isMockMode })
     localStorage.setItem('mockMode', isMockMode.toString())
     
-    // 彻底清理所有状态
-    if (isMockMode) {
-      // 切换到 Mock 模式：清理真实模式的数据
-      localStorage.removeItem('auth_token')
-    } else {
-      // 切换到真实模式：清理 Mock 模式的数据
-      localStorage.removeItem('mock_current_user')
-    }
-    
-    // 清理 Zustand 状态
+    // 切换模式时清理状态，让各模块自己重新初始化
     set({ 
-      isMockMode,
       currentUser: null, 
       projects: [], 
-      currentProject: null,
-      compileLogs: [],
-      isLoading: false
+      currentProject: null, 
+      compileLogs: [] 
     })
     
-    console.log(`[DataBridge] Switched to ${isMockMode ? 'Mock' : 'Real'} mode, all state cleared`)
+    console.log(`[DataBridge] Switched to ${isMockMode ? 'Mock' : 'Real'} mode`)
   },
   logout: () => set({ 
     currentUser: null, 
@@ -119,6 +108,9 @@ export const useDataStore = create<DataStore>((set) => ({
     currentProject: null 
   }),
 }))
+
+// 注册DataStore到mockDataBridge，避免循环依赖
+registerDataStore(useDataStore)
 
 // 实际后端 DataBridge 实现
 const realDataBridgeImpl: IDataBridge = {
@@ -561,9 +553,22 @@ const realDataBridge = createDataBridge(realDataBridgeImpl)
 const createDynamicDataBridge = (): IDataBridge => {
   const handler: ProxyHandler<IDataBridge> = {
     get(_target, prop) {
-      const currentBridge = useDataStore.getState().isMockMode ? mockDataBridge : realDataBridge
+      // 从localStorage直接读取模式状态，避免Zustand状态读取的时序问题
+      const isMockMode = localStorage.getItem('mockMode') === 'true'
+      console.log(`[DataBridge] Accessing ${String(prop)}, mode: ${isMockMode ? 'Mock' : 'Real'}`)
+      
+      const currentBridge = isMockMode ? mockDataBridge : realDataBridge
       const value = currentBridge[prop as keyof IDataBridge]
-      return typeof value === 'function' ? value.bind(currentBridge) : value
+      
+      if (typeof value === 'function') {
+        // 确保方法调用时的上下文正确
+        return function(this: IDataBridge, ...args: any[]) {
+          console.log(`[DataBridge] Calling ${String(prop)} in ${isMockMode ? 'Mock' : 'Real'} mode`)
+          return (value as Function).apply(currentBridge, args)
+        }
+      }
+      
+      return value
     }
   }
   
