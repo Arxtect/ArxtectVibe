@@ -1,58 +1,62 @@
 import { create } from 'zustand'
-import axios, { AxiosInstance, AxiosError } from 'axios'
-import { 
-  User, 
-  Project, 
-  FileEntry,
-  CompileLogEntry, 
-  ApiResponse, 
-  AppState,
-  Role
-} from '@/types'
-import { mockDataBridge } from './mockDataBridge'
+import axios, { AxiosError } from 'axios'
 import toast from 'react-hot-toast'
+import { User, Project, FileEntry, Role, CompileLogEntry } from '@/types'
+import { mockDataBridge } from './mockDataBridge'
+import { IDataBridge, createDataBridge } from './dataBridgeInterface'
 
-// API基础配置
+// API 配置
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 
-// 创建axios实例
-const apiClient: AxiosInstance = axios.create({
+const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// 请求拦截器 - 添加token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
+// 请求拦截器：添加认证令牌
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
-)
+  return config
+})
 
-// 响应拦截器 - 处理错误
+// 响应拦截器：处理认证错误
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // 未授权，清除登录状态
       localStorage.removeItem('auth_token')
       useDataStore.getState().logout()
+      toast.error('登录已过期，请重新登录')
       window.location.href = '/login'
     }
     return Promise.reject(error)
   }
 )
 
-// Zustand状态管理
+// API 响应类型
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  message?: string
+}
+
+// 全局状态接口
+interface AppState {
+  // 状态数据
+  isLoading: boolean
+  currentUser: User | null
+  projects: Project[]
+  currentProject: Project | null
+  compileLogs: CompileLogEntry[]
+  isMockMode: boolean
+}
+
 interface DataStore extends AppState {
   // Actions
   setLoading: (loading: boolean) => void
@@ -65,15 +69,16 @@ interface DataStore extends AppState {
   logout: () => void
 }
 
+// 创建状态管理器
 export const useDataStore = create<DataStore>((set) => ({
-  // State
+  // 初始状态
+  isLoading: false,
   currentUser: null,
   projects: [],
   currentProject: null,
   compileLogs: [],
-  isLoading: false,
-  isMockMode: localStorage.getItem('mockMode') === 'true' || false,
-
+  isMockMode: localStorage.getItem('mockMode') === 'true',
+  
   // Actions
   setLoading: (loading) => set({ isLoading: loading }),
   setCurrentUser: (user) => set({ currentUser: user }),
@@ -101,9 +106,9 @@ export const useDataStore = create<DataStore>((set) => ({
   }),
 }))
 
-// 实际后端 DataBridge API方法
-const realDataBridge = {
-  // 用户认证相关
+// 实际后端 DataBridge 实现
+const realDataBridgeImpl: IDataBridge = {
+  // ========== 用户认证相关 ==========
   async login(username: string, password: string): Promise<User> {
     try {
       useDataStore.getState().setLoading(true)
@@ -146,7 +151,7 @@ const realDataBridge = {
     }
   },
 
-  // 项目管理相关
+  // ========== 项目管理相关 ==========
   async fetchProjects(): Promise<Project[]> {
     try {
       useDataStore.getState().setLoading(true)
@@ -227,7 +232,29 @@ const realDataBridge = {
     }
   },
 
-  // 文件操作相关
+  async deleteProject(projectId: string): Promise<void> {
+    try {
+      const response = await apiClient.delete<ApiResponse<void>>(`/projects/${projectId}`)
+      
+      if (response.data.success) {
+        // 刷新项目列表
+        await this.fetchProjects()
+        toast.success('项目删除成功')
+      } else {
+        throw new Error(response.data.message || '删除项目失败')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '删除项目失败'
+        : error instanceof Error
+        ? error.message
+        : '删除项目失败'
+      toast.error(message)
+      throw new Error(message)
+    }
+  },
+
+  // ========== 文件操作相关 ==========
   async saveFile(projectId: string, fileId: string, content: string): Promise<void> {
     try {
       const response = await apiClient.put<ApiResponse<void>>(
@@ -238,6 +265,8 @@ const realDataBridge = {
       if (!response.data.success) {
         throw new Error(response.data.message || '保存文件失败')
       }
+      
+      toast.success('文件保存成功')
     } catch (error: unknown) {
       const message = error instanceof AxiosError 
         ? error.response?.data?.message || error.message || '保存文件失败'
@@ -275,7 +304,31 @@ const realDataBridge = {
     }
   },
 
-  // 协作者管理相关
+  async deleteFile(projectId: string, fileId: string): Promise<void> {
+    try {
+      const response = await apiClient.delete<ApiResponse<void>>(
+        `/projects/${projectId}/files/${fileId}`
+      )
+      
+      if (response.data.success) {
+        // 刷新当前项目
+        await this.openProject(projectId)
+        toast.success('文件删除成功')
+      } else {
+        throw new Error(response.data.message || '删除文件失败')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '删除文件失败'
+        : error instanceof Error
+        ? error.message
+        : '删除文件失败'
+      toast.error(message)
+      throw new Error(message)
+    }
+  },
+
+  // ========== 协作者管理相关 ==========
   async addCollaborator(projectId: string, userIdentifier: string, role: Role): Promise<void> {
     try {
       const response = await apiClient.post<ApiResponse<void>>(
@@ -284,7 +337,7 @@ const realDataBridge = {
       )
       
       if (response.data.success) {
-        // 刷新当前项目以更新协作者列表
+        // 刷新当前项目
         await this.openProject(projectId)
         toast.success('协作者添加成功')
       } else {
@@ -309,7 +362,7 @@ const realDataBridge = {
       )
       
       if (response.data.success) {
-        // 刷新当前项目以更新权限信息
+        // 刷新当前项目
         await this.openProject(projectId)
         toast.success('权限更新成功')
       } else {
@@ -333,175 +386,54 @@ const realDataBridge = {
       )
       
       if (response.data.success) {
-        // 刷新当前项目以更新成员列表
+        // 刷新当前项目
         await this.openProject(projectId)
-        toast.success('成员移除成功')
+        toast.success('协作者移除成功')
       } else {
-        throw new Error(response.data.message || '移除成员失败')
+        throw new Error(response.data.message || '移除协作者失败')
       }
     } catch (error: unknown) {
       const message = error instanceof AxiosError 
-        ? error.response?.data?.message || error.message || '移除成员失败'
+        ? error.response?.data?.message || error.message || '移除协作者失败'
         : error instanceof Error
         ? error.message
-        : '移除成员失败'
+        : '移除协作者失败'
       toast.error(message)
       throw new Error(message)
     }
   },
 
-  // 编译日志相关
+  // ========== 编译日志相关 ==========
   addCompileLog(log: CompileLogEntry): void {
     useDataStore.getState().addCompileLog(log)
   },
 
   clearCompileLogs(): void {
     useDataStore.getState().clearCompileLogs()
-  },
+  }
 }
 
-// 智能 DataBridge - 根据模式自动选择实际后端或Mock
-export const dataBridge = {
-  // 用户认证相关
-  async login(username: string, password: string): Promise<User> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      const user = await mockDataBridge.login(username, password)
-      useDataStore.getState().setCurrentUser(user)
-      return user
-    } else {
-      return realDataBridge.login(username, password)
-    }
-  },
+// 创建类型安全的真实DataBridge
+const realDataBridge = createDataBridge(realDataBridgeImpl)
 
-  async logout(): Promise<void> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      await mockDataBridge.logout()
-      useDataStore.getState().logout()
-    } else {
-      return realDataBridge.logout()
+// 动态DataBridge代理，根据当前模式自动切换
+const createDynamicDataBridge = (): IDataBridge => {
+  const handler: ProxyHandler<IDataBridge> = {
+    get(_target, prop) {
+      const currentBridge = useDataStore.getState().isMockMode ? mockDataBridge : realDataBridge
+      const value = currentBridge[prop as keyof IDataBridge]
+      return typeof value === 'function' ? value.bind(currentBridge) : value
     }
-  },
+  }
+  
+  // 使用空对象作为代理目标，所有操作都通过handler处理
+  return new Proxy({} as IDataBridge, handler)
+}
 
-  // 项目管理相关
-  async fetchProjects(): Promise<Project[]> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      const projects = await mockDataBridge.fetchProjects()
-      useDataStore.getState().setProjects(projects)
-      return projects
-    } else {
-      return realDataBridge.fetchProjects()
-    }
-  },
+// 统一的DataBridge导出 - 使用代理实现动态切换
+export const dataBridge: IDataBridge = createDynamicDataBridge()
 
-  async createProject(name: string, description?: string): Promise<Project> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      const project = await mockDataBridge.createProject(name, description)
-      // 刷新项目列表
-      await this.fetchProjects()
-      return project
-    } else {
-      return realDataBridge.createProject(name, description)
-    }
-  },
-
-  async openProject(projectId: string): Promise<Project> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      const project = await mockDataBridge.openProject(projectId)
-      useDataStore.getState().setCurrentProject(project)
-      return project
-    } else {
-      return realDataBridge.openProject(projectId)
-    }
-  },
-
-  async deleteProject(projectId: string): Promise<void> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      return mockDataBridge.deleteProject(projectId)
-    } else {
-      // 实际后端的删除项目方法需要添加
-      throw new Error('删除项目功能尚未在后端实现')
-    }
-  },
-
-  // 文件操作相关
-  async saveFile(projectId: string, fileId: string, content: string): Promise<void> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      return mockDataBridge.saveFile(projectId, fileId, content)
-    } else {
-      return realDataBridge.saveFile(projectId, fileId, content)
-    }
-  },
-
-  async createFile(projectId: string, name: string, content: string = ''): Promise<FileEntry> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      return mockDataBridge.createFile(projectId, name, content)
-    } else {
-      return realDataBridge.createFile(projectId, name, content)
-    }
-  },
-
-  async deleteFile(projectId: string, fileId: string): Promise<void> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      return mockDataBridge.deleteFile(projectId, fileId)
-    } else {
-      // 实际后端的删除文件方法需要添加
-      throw new Error('删除文件功能尚未在后端实现')
-    }
-  },
-
-  // 协作者管理相关
-  async addCollaborator(projectId: string, userIdentifier: string, role: Role): Promise<void> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      return mockDataBridge.addCollaborator(projectId, userIdentifier, role)
-    } else {
-      return realDataBridge.addCollaborator(projectId, userIdentifier, role)
-    }
-  },
-
-  async updateMemberRole(projectId: string, userId: string, newRole: Role): Promise<void> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      return mockDataBridge.updateMemberRole(projectId, userId, newRole)
-    } else {
-      return realDataBridge.updateMemberRole(projectId, userId, newRole)
-    }
-  },
-
-  async removeMember(projectId: string, userId: string): Promise<void> {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      return mockDataBridge.removeMember(projectId, userId)
-    } else {
-      return realDataBridge.removeMember(projectId, userId)
-    }
-  },
-
-  // 编译日志相关
-  addCompileLog(log: CompileLogEntry): void {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      mockDataBridge.addCompileLog(log)
-    } else {
-      realDataBridge.addCompileLog(log)
-    }
-  },
-
-  clearCompileLogs(): void {
-    const isMockMode = useDataStore.getState().isMockMode
-    if (isMockMode) {
-      mockDataBridge.clearCompileLogs()
-    } else {
-      realDataBridge.clearCompileLogs()
-    }
-  },
+// 切换模式的函数
+export function switchDataBridgeMode(isMockMode: boolean): void {
+  useDataStore.getState().setMockMode(isMockMode)
 } 

@@ -5,7 +5,7 @@ import { useDataStore } from '@/core/dataBridge'
 import Landing from '@/modules/Landing/Landing'
 import Login from '@/modules/Login/Login'
 import ProjectList from '@/modules/ProjectList/ProjectList'
-import Editor from '@/modules/Editor/Editor'
+import { EditorV2 } from '@/modules/Editor'
 
 // 路由守卫组件
 const ProtectedRoute: React.FC = () => {
@@ -68,7 +68,7 @@ function App() {
             
             <Route element={<ProtectedRoute />}>
               <Route path="projects" element={<ProjectList />} />
-              <Route path="editor/:projectId" element={<Editor />} />
+              <Route path="editor/:projectId" element={<EditorV2 />} />
             </Route>
           </Route>
           
