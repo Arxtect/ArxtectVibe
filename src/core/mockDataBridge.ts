@@ -242,7 +242,7 @@ C & 3.45 & 6.78 \\\\
       fileId: `bib_${userId}`,
       name: 'references.bib',
       content: `@article{einstein1905,
-  title={Zur Elektrodynamik bewegter K{\"o}rper},
+  title={Zur Elektrodynamik bewegter K{"o}rper},
   author={Einstein, Albert},
   journal={Annalen der physik},
   volume={17},

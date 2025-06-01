@@ -61,6 +61,72 @@ export const WebIDE: React.FC<WebIDEProps> = ({
 
   console.log(`[WebIDE] Render - User: ${currentUser?.username}, ProjectId: ${projectId}, IsInitialized: ${isInitialized}, Monaco: ${!!editorRef.current}`)
 
+  // 根据文件名获取语言
+  const getLanguageFromFileName = React.useCallback((fileName: string): string => {
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    switch (ext) {
+      case 'tex': return 'latex'
+      case 'md': return 'markdown'
+      case 'bib': return 'bibtex'
+      case 'json': return 'json'
+      case 'js': return 'javascript'
+      case 'ts': return 'typescript'
+      case 'jsx': return 'javascript'
+      case 'tsx': return 'typescript'
+      case 'css': return 'css'
+      case 'scss': return 'scss'
+      case 'html': return 'html'
+      case 'xml': return 'xml'
+      case 'py': return 'python'
+      default: return 'plaintext'
+    }
+  }, [])
+
+  // 加载项目文件
+  const loadProjectFiles = React.useCallback(async () => {
+    try {
+      const projectFilePaths = await dataBridge.getProjectFiles(projectId)
+      const validFileNames = Array.isArray(projectFilePaths) 
+        ? projectFilePaths.filter(path => !path.endsWith('/') && typeof path === 'string')
+        : []
+      
+      console.log('[WebIDE] Loading files:', validFileNames)
+
+      const fileModels: FileModel[] = []
+
+      // 为每个文件创建模型
+      for (const fileName of validFileNames) {
+        try {
+          const content = await dataBridge.readFile(projectId, fileName)
+          const language = getLanguageFromFileName(fileName)
+          
+          fileModels.push({
+            path: fileName,
+            content: content || '',
+            language,
+            model: null // 稍后由 Monaco 创建
+          })
+        } catch (error) {
+          console.error(`[WebIDE] Failed to load file ${fileName}:`, error)
+        }
+      }
+
+      setFiles(fileModels)
+
+      // 自动打开 main.tex 文件
+      const mainFile = fileModels.find(f => f.path === 'main.tex')
+      if (mainFile) {
+        setActiveFile(mainFile.path)
+      } else if (fileModels.length > 0) {
+        setActiveFile(fileModels[0].path)
+      }
+
+    } catch (error) {
+      console.error('[WebIDE] Failed to load project files:', error)
+      setFiles([])
+    }
+  }, [projectId, getLanguageFromFileName])
+
   // 初始化 Monaco Editor
   const initializeMonacoEditor = async () => {
     try {
@@ -76,6 +142,129 @@ export const WebIDE: React.FC<WebIDEProps> = ({
       throw error
     }
   }
+
+  // 初始化插件管理器
+  const initializePluginManager = React.useCallback(async () => {
+    const mockFileSystem = {
+      readFile: () => Promise.resolve(Buffer.from('')),
+      writeFile: () => Promise.resolve(),
+      deleteFile: () => Promise.resolve(),
+      exists: () => Promise.resolve(false),
+      mkdir: () => Promise.resolve(),
+      rmdir: () => Promise.resolve(),
+      readdir: () => Promise.resolve([]),
+      stat: () => Promise.resolve({
+        isFile: () => true,
+        isDirectory: () => false,
+        size: 0,
+        mtime: new Date(),
+        ctime: new Date()
+      }),
+      watch: () => ({ dispose: () => {} }),
+      join: (...paths: string[]) => paths.join('/'),
+      dirname: (path: string) => path.split('/').slice(0, -1).join('/'),
+      basename: (path: string) => path.split('/').pop() || '',
+      extname: (path: string) => {
+        const base = path.split('/').pop() || ''
+        const dotIndex = base.lastIndexOf('.')
+        return dotIndex > 0 ? base.substring(dotIndex) : ''
+      }
+    }
+
+    const menuService = {
+      registerMenu: () => ({ dispose: () => {} }),
+      getMenu: () => []
+    }
+    
+    const uiProvider = {
+      showMessage: (message: string, type = 'info') => {
+        console.log(`[UI] ${type.toUpperCase()}: ${message}`)
+      },
+      showInputBox: async () => undefined,
+      showQuickPick: async () => undefined,
+      registerViewContainer: () => ({ dispose: () => {} }),
+      registerView: () => ({ dispose: () => {} })
+    }
+
+    serviceRegistry.register('menus', menuService)
+    serviceRegistry.register('ui', uiProvider)
+
+    pluginManagerRef.current = new PluginManager(
+      mockFileSystem,
+      eventBus,
+      serviceRegistry,
+      commandService,
+      menuService,
+      customEditorService,
+      uiProvider,
+      dataBridge.getProjectPath(projectId)
+    )
+  }, [projectId])
+
+  // 创建插件清单
+  const createPluginManifest = React.useCallback((pluginId: string) => {
+    const baseManifest = {
+      id: pluginId,
+      name: pluginId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      version: '1.0.0',
+      description: `${pluginId} enhancement plugin for Monaco Editor IDE`,
+      main: './extension.js',
+      activationEvents: ['*']
+    }
+
+    switch (pluginId) {
+      case 'pdf-viewer':
+        return {
+          ...baseManifest,
+          name: 'PDF Viewer',
+          description: 'View compiled PDF documents within Monaco IDE'
+        }
+
+      case 'ai-assistant':
+        return {
+          ...baseManifest,
+          name: 'AI Assistant',
+          description: 'AI-powered LaTeX writing assistant integrated with Monaco Editor'
+        }
+
+      case 'latex-compiler':
+        return {
+          ...baseManifest,
+          name: 'LaTeX Compiler',
+          description: 'WebAssembly-based LaTeX compiler with Monaco IDE integration'
+        }
+
+      case 'collaboration':
+        return {
+          ...baseManifest,
+          name: 'Real-time Collaboration',
+          description: 'Yjs-based collaborative editing within Monaco Editor'
+        }
+
+      default:
+        return baseManifest
+    }
+  }, [])
+
+  // 加载增强插件
+  const loadPlugins = React.useCallback(async (pluginIds: string[]) => {
+    if (!pluginManagerRef.current) return
+
+    for (const pluginId of pluginIds) {
+      try {
+        console.log(`[WebIDE] Loading enhancement plugin: ${pluginId}`)
+        const manifest = createPluginManifest(pluginId)
+        await pluginManagerRef.current.loadPlugin(manifest)
+        await pluginManagerRef.current.activatePlugin(pluginId)
+        
+        console.log(`[WebIDE] Enhancement plugin ${pluginId} loaded`)
+      } catch (error) {
+        console.error(`[WebIDE] Failed to load enhancement plugin ${pluginId}:`, error)
+      }
+    }
+    
+    console.log('[WebIDE] All enhancement plugins loaded')
+  }, [createPluginManifest])
 
   // 初始化 WebIDE
   const initializeWebIDE = React.useCallback(async () => {
@@ -149,7 +338,7 @@ export const WebIDE: React.FC<WebIDEProps> = ({
       setInitializationStep(`初始化失败: ${errorMessage}`)
       onError?.(err instanceof Error ? err : new Error(errorMessage))
     }
-  }, [currentUser, projectId, plugins, onReady, onError, isInitialized])
+  }, [currentUser, projectId, plugins, onReady, onError, isInitialized, initializePluginManager, loadPlugins, loadProjectFiles])
 
   useEffect(() => {
     // 只有在用户已登录且未初始化时才进行初始化
@@ -159,7 +348,7 @@ export const WebIDE: React.FC<WebIDEProps> = ({
       console.log('[WebIDE] Waiting for user authentication...')
       setError('等待用户认证...')
     }
-  }, [currentUser, initializeWebIDE])
+  }, [currentUser, isInitialized, initializeWebIDE])
 
   // 当项目ID变化时重置初始化状态
   useEffect(() => {
@@ -169,195 +358,6 @@ export const WebIDE: React.FC<WebIDEProps> = ({
     setFiles([])
     setActiveFile(null)
   }, [projectId])
-
-  // 加载项目文件
-  const loadProjectFiles = async () => {
-    try {
-      const projectFilePaths = await dataBridge.getProjectFiles(projectId)
-      const validFileNames = Array.isArray(projectFilePaths) 
-        ? projectFilePaths.filter(path => !path.endsWith('/') && typeof path === 'string')
-        : []
-      
-      console.log('[WebIDE] Loading files:', validFileNames)
-
-      const fileModels: FileModel[] = []
-
-      // 为每个文件创建模型
-      for (const fileName of validFileNames) {
-        try {
-          const content = await dataBridge.readFile(projectId, fileName)
-          const language = getLanguageFromFileName(fileName)
-          
-          fileModels.push({
-            path: fileName,
-            content: content || '',
-            language,
-            model: null // 稍后由 Monaco 创建
-          })
-        } catch (error) {
-          console.error(`[WebIDE] Failed to load file ${fileName}:`, error)
-        }
-      }
-
-      setFiles(fileModels)
-
-      // 自动打开 main.tex 文件
-      const mainFile = fileModels.find(f => f.path === 'main.tex')
-      if (mainFile) {
-        setActiveFile(mainFile.path)
-      } else if (fileModels.length > 0) {
-        setActiveFile(fileModels[0].path)
-      }
-
-    } catch (error) {
-      console.error('[WebIDE] Failed to load project files:', error)
-      setFiles([])
-    }
-  }
-
-  // 根据文件名获取语言
-  const getLanguageFromFileName = (fileName: string): string => {
-    const ext = fileName.split('.').pop()?.toLowerCase()
-    switch (ext) {
-      case 'tex': return 'latex'
-      case 'md': return 'markdown'
-      case 'bib': return 'bibtex'
-      case 'json': return 'json'
-      case 'js': return 'javascript'
-      case 'ts': return 'typescript'
-      case 'jsx': return 'javascript'
-      case 'tsx': return 'typescript'
-      case 'css': return 'css'
-      case 'scss': return 'scss'
-      case 'html': return 'html'
-      case 'xml': return 'xml'
-      case 'py': return 'python'
-      default: return 'plaintext'
-    }
-  }
-
-  // 初始化插件管理器
-  const initializePluginManager = async () => {
-    const mockFileSystem = {
-      readFile: () => Promise.resolve(Buffer.from('')),
-      writeFile: () => Promise.resolve(),
-      deleteFile: () => Promise.resolve(),
-      exists: () => Promise.resolve(false),
-      mkdir: () => Promise.resolve(),
-      rmdir: () => Promise.resolve(),
-      readdir: () => Promise.resolve([]),
-      stat: () => Promise.resolve({
-        isFile: () => true,
-        isDirectory: () => false,
-        size: 0,
-        mtime: new Date(),
-        ctime: new Date()
-      }),
-      watch: () => ({ dispose: () => {} }),
-      join: (...paths: string[]) => paths.join('/'),
-      dirname: (path: string) => path.split('/').slice(0, -1).join('/'),
-      basename: (path: string) => path.split('/').pop() || '',
-      extname: (path: string) => {
-        const base = path.split('/').pop() || ''
-        const dotIndex = base.lastIndexOf('.')
-        return dotIndex > 0 ? base.substring(dotIndex) : ''
-      }
-    }
-
-    const menuService = {
-      registerMenu: () => ({ dispose: () => {} }),
-      getMenu: () => []
-    }
-    
-    const uiProvider = {
-      showMessage: (message: string, type = 'info') => {
-        console.log(`[UI] ${type.toUpperCase()}: ${message}`)
-      },
-      showInputBox: async () => undefined,
-      showQuickPick: async () => undefined,
-      registerViewContainer: () => ({ dispose: () => {} }),
-      registerView: () => ({ dispose: () => {} })
-    }
-
-    serviceRegistry.register('menus', menuService)
-    serviceRegistry.register('ui', uiProvider)
-
-    pluginManagerRef.current = new PluginManager(
-      mockFileSystem,
-      eventBus,
-      serviceRegistry,
-      commandService,
-      menuService,
-      customEditorService,
-      uiProvider,
-      dataBridge.getProjectPath(projectId)
-    )
-  }
-
-  // 加载增强插件
-  const loadPlugins = async (pluginIds: string[]) => {
-    if (!pluginManagerRef.current) return
-
-    for (const pluginId of pluginIds) {
-      try {
-        console.log(`[WebIDE] Loading enhancement plugin: ${pluginId}`)
-        const manifest = createPluginManifest(pluginId)
-        await pluginManagerRef.current.loadPlugin(manifest)
-        await pluginManagerRef.current.activatePlugin(pluginId)
-        
-        console.log(`[WebIDE] Enhancement plugin ${pluginId} loaded`)
-      } catch (error) {
-        console.error(`[WebIDE] Failed to load enhancement plugin ${pluginId}:`, error)
-      }
-    }
-    
-    console.log('[WebIDE] All enhancement plugins loaded')
-  }
-
-  // 创建插件清单
-  const createPluginManifest = (pluginId: string) => {
-    const baseManifest = {
-      id: pluginId,
-      name: pluginId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      version: '1.0.0',
-      description: `${pluginId} enhancement plugin for Monaco Editor IDE`,
-      main: './extension.js',
-      activationEvents: ['*']
-    }
-
-    switch (pluginId) {
-      case 'pdf-viewer':
-        return {
-          ...baseManifest,
-          name: 'PDF Viewer',
-          description: 'View compiled PDF documents within Monaco IDE'
-        }
-
-      case 'ai-assistant':
-        return {
-          ...baseManifest,
-          name: 'AI Assistant',
-          description: 'AI-powered LaTeX writing assistant integrated with Monaco Editor'
-        }
-
-      case 'latex-compiler':
-        return {
-          ...baseManifest,
-          name: 'LaTeX Compiler',
-          description: 'WebAssembly-based LaTeX compiler with Monaco IDE integration'
-        }
-
-      case 'collaboration':
-        return {
-          ...baseManifest,
-          name: 'Real-time Collaboration',
-          description: 'Yjs-based collaborative editing within Monaco Editor'
-        }
-
-      default:
-        return baseManifest
-    }
-  }
 
   // 处理文件点击
   const handleFileClick = (filePath: string) => {

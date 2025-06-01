@@ -562,9 +562,9 @@ const createDynamicDataBridge = (): IDataBridge => {
       
       if (typeof value === 'function') {
         // 确保方法调用时的上下文正确
-        return function(this: IDataBridge, ...args: any[]) {
+        return function(this: IDataBridge, ...args: unknown[]) {
           console.log(`[DataBridge] Calling ${String(prop)} in ${isMockMode ? 'Mock' : 'Real'} mode`)
-          return (value as Function).apply(currentBridge, args)
+          return (value as (...args: unknown[]) => unknown).apply(currentBridge, args)
         }
       }
       
