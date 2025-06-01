@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useDataStore } from '@/core/dataBridge'
+import Landing from '@/modules/Landing/Landing'
 import Login from '@/modules/Login/Login'
 import ProjectList from '@/modules/ProjectList/ProjectList'
 import Editor from '@/modules/Editor/Editor'
@@ -62,7 +63,7 @@ function App() {
         
         <Routes>
           <Route path="/" element={<MainLayout />}>
-            <Route index element={<Navigate to="/projects" replace />} />
+            <Route index element={<Landing />} />
             <Route path="login" element={<Login />} />
             
             <Route element={<ProtectedRoute />}>

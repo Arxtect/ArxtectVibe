@@ -12,6 +12,14 @@
 
 # 基于 Yjs 的协同 LaTeX 编辑平台前端项目
 
+[![CI/CD](https://github.com/Arxtect/ArxtectVibe/actions/workflows/deploy.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/deploy.yml)
+[![Build Status](https://github.com/Arxtect/ArxtectVibe/actions/workflows/build.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/build.yml)
+[![Tests](https://github.com/Arxtect/ArxtectVibe/actions/workflows/test.yml/badge.svg)](https://github.com/Arxtect/ArxtectVibe/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.2+-61DAFB.svg)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.0+-646CFF.svg)](https://vitejs.dev/)
+
 ## 项目目标与简介
 
 本项目旨在构建一个支持多人实时协同编辑 LaTeX 文档的前端平台，类似 Overleaf 等在线 LaTeX 编辑器，但采用全新的技术栈与开发方式。平台支持完整的多文件 LaTeX 项目协作：用户可在浏览器中同时编辑多个 `.tex` 文件，所有更改通过 **Yjs** CRDT 实时同步给其他在线协作者。Yjs 使多个用户同时编辑文档时不会产生冲突，并且具备脱机编辑和分布式同步能力。前端使用 **Vite + React + TypeScript + TailwindCSS** 构建，部署于 GitHub Pages（纯前端静态部署）。页面加载后，用户登录并打开项目，即可加入对应的协同会话，通过 Yjs 的网络协议（如 WebRTC 或 WebSocket）实现编辑内容的实时共享。
@@ -33,7 +41,7 @@
 
 1. **克隆项目**
 ```bash
-git clone https://github.com/your-username/ArxtectVibe.git
+git clone https://github.com/Arxtect/ArxtectVibe.git
 cd ArxtectVibe
 ```
 
