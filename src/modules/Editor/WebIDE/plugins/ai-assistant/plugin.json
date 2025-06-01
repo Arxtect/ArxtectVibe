@@ -1,0 +1,84 @@
+{
+  "id": "ai-assistant",
+  "name": "AI Assistant",
+  "version": "1.0.0",
+  "description": "AI-powered LaTeX writing assistant with function calling capabilities",
+  "main": "./extension.js",
+  "activationEvents": ["*"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiAssistant.toggle",
+        "title": "Toggle AI Assistant Panel"
+      },
+      {
+        "command": "aiAssistant.generateCompletion",
+        "title": "Generate AI Completion"
+      },
+      {
+        "command": "aiAssistant.insertLatexCommand",
+        "title": "Insert LaTeX Command"
+      },
+      {
+        "command": "aiAssistant.explainError",
+        "title": "Explain LaTeX Error"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "aiAssistant.generateCompletion",
+          "when": "editorTextFocus",
+          "group": "ai"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "aiAssistant.toggle",
+          "when": "view == aiAssistant",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewContainers": {
+      "activitybar": [
+        {
+          "id": "aiAssistant",
+          "title": "AI Assistant",
+          "icon": "🤖"
+        }
+      ]
+    },
+    "views": {
+      "aiAssistant": [
+        {
+          "id": "aiAssistant.chat",
+          "name": "Chat",
+          "when": "aiAssistant.enabled"
+        },
+        {
+          "id": "aiAssistant.functions",
+          "name": "Functions",
+          "when": "aiAssistant.enabled"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "aiAssistant.generateCompletion",
+        "key": "ctrl+shift+space",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "engines": {
+    "webide": "^1.0.0"
+  },
+  "categories": ["AI", "Assistant", "LaTeX"],
+  "keywords": ["ai", "assistant", "latex", "completion", "function-calling"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Arxtect/ArxtectVibe"
+  },
+  "license": "MIT"
+} 

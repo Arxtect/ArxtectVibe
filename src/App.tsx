@@ -1,21 +1,69 @@
-import React, { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useDataStore } from '@/core/dataBridge'
 import Landing from '@/modules/Landing/Landing'
 import Login from '@/modules/Login/Login'
 import ProjectList from '@/modules/ProjectList/ProjectList'
-import { EditorV2 } from '@/modules/Editor'
+import { WebIDE } from '@/modules/Editor/WebIDE'
 
 // 路由守卫组件
 const ProtectedRoute: React.FC = () => {
   const currentUser = useDataStore((state) => state.currentUser)
+  const isInitializing = useDataStore((state) => state.isLoading)
+  
+  // 如果还在初始化用户状态，显示加载状态
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="text-gray-600">正在验证登录状态...</div>
+        </div>
+      </div>
+    )
+  }
   
   if (!currentUser) {
     return <Navigate to="/login" replace />
   }
   
   return <Outlet />
+}
+
+// WebIDE 路由组件
+const EditorRoute: React.FC = () => {
+  const { projectId } = useParams<{ projectId: string }>()
+  const currentUser = useDataStore((state) => state.currentUser)
+  
+  if (!projectId) {
+    return <Navigate to="/projects" replace />
+  }
+
+  // 创建用户隔离的项目路径
+  const userProjectPath = currentUser 
+    ? `/projects/${currentUser.username}/${projectId}`
+    : `/projects/guest/${projectId}`
+
+  return (
+    <WebIDE
+      projectPath={userProjectPath}
+      plugins={['pdf-viewer', 'ai-assistant', 'monaco-editor', 'plugin-manager']}
+      theme="dark"
+      enabledFeatures={{
+        fileExplorer: true,
+        terminal: false,
+        git: false,
+        debug: false
+      }}
+      onReady={() => {
+        console.log('WebIDE is ready for user:', currentUser?.username || 'guest')
+      }}
+      onError={(error) => {
+        console.error('WebIDE error:', error)
+      }}
+    />
+  )
 }
 
 // 主布局组件
@@ -28,14 +76,59 @@ const MainLayout: React.FC = () => {
 }
 
 function App() {
+  const setCurrentUser = useDataStore((state) => state.setCurrentUser)
+  const setLoading = useDataStore((state) => state.setLoading)
+  const isMockMode = useDataStore((state) => state.isMockMode)
+  const [isInitialized, setIsInitialized] = useState(false)
+
   // 应用启动时检查登录状态
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      // TODO: 验证token有效性，获取用户信息
-      // dataBridge.getCurrentUser()
+    const initializeUserState = async () => {
+      setLoading(true)
+      
+      try {
+        const token = localStorage.getItem('auth_token')
+        
+        if (token && !isMockMode) {
+          // 在真实模式下，需要验证token并获取用户信息
+          // TODO: 实现真实的token验证
+          console.log('Token found, but real backend not implemented yet')
+        } else if (isMockMode) {
+          // 在Mock模式下，检查是否有保存的用户状态
+          const savedUser = localStorage.getItem('mock_current_user')
+          if (savedUser) {
+            try {
+              const user = JSON.parse(savedUser)
+              setCurrentUser(user)
+              console.log('Mock user state restored:', user.username)
+            } catch (error) {
+              console.error('Failed to parse saved user state:', error)
+              localStorage.removeItem('mock_current_user')
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize user state:', error)
+      } finally {
+        setLoading(false)
+        setIsInitialized(true)
+      }
     }
-  }, [])
+
+    initializeUserState()
+  }, [setCurrentUser, setLoading, isMockMode])
+
+  // 如果还未初始化完成，显示全局加载状态
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="text-gray-600">正在初始化应用...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <BrowserRouter basename="/ArxtectVibe">
@@ -68,7 +161,7 @@ function App() {
             
             <Route element={<ProtectedRoute />}>
               <Route path="projects" element={<ProjectList />} />
-              <Route path="editor/:projectId" element={<EditorV2 />} />
+              <Route path="editor/:projectId" element={<EditorRoute />} />
             </Route>
           </Route>
           

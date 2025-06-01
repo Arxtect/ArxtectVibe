@@ -1,0 +1,71 @@
+{
+  "id": "plugin-manager",
+  "name": "Plugin Manager",
+  "version": "1.0.0",
+  "description": "Manage WebIDE plugins - install, enable, disable, and configure plugins",
+  "main": "./extension.js",
+  "activationEvents": ["*"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pluginManager.openView",
+        "title": "Open Plugin Manager",
+        "category": "View"
+      },
+      {
+        "command": "pluginManager.refresh",
+        "title": "Refresh Plugin List",
+        "category": "Plugin Manager"
+      },
+      {
+        "command": "pluginManager.install",
+        "title": "Install Plugin",
+        "category": "Plugin Manager"
+      },
+      {
+        "command": "pluginManager.enable",
+        "title": "Enable Plugin",
+        "category": "Plugin Manager"
+      },
+      {
+        "command": "pluginManager.disable",
+        "title": "Disable Plugin",
+        "category": "Plugin Manager"
+      },
+      {
+        "command": "pluginManager.uninstall",
+        "title": "Uninstall Plugin",
+        "category": "Plugin Manager"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pluginManager.openView"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "pluginManagerView",
+          "name": "Plugin Manager",
+          "when": "true"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "pluginManager.openView",
+        "key": "ctrl+shift+p",
+        "when": "true"
+      }
+    ]
+  },
+  "engines": {
+    "webide": "^1.0.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["plugin", "manager", "extension", "install"],
+  "icon": "plugin-icon.svg"
+} 

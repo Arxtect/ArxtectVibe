@@ -1,0 +1,82 @@
+{
+  "id": "pdf-viewer",
+  "name": "PDF Viewer",
+  "version": "1.0.0",
+  "description": "View PDF documents in the IDE",
+  "publisher": "webide-core",
+  "license": "MIT",
+  "main": "./extension.js",
+  "activationEvents": [
+    "onFileOpen:*.pdf"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pdfViewer.open",
+        "title": "Open with PDF Viewer",
+        "category": "PDF",
+        "icon": "📄"
+      },
+      {
+        "command": "pdfViewer.zoomIn",
+        "title": "Zoom In",
+        "category": "PDF",
+        "icon": "🔍"
+      },
+      {
+        "command": "pdfViewer.zoomOut",
+        "title": "Zoom Out",
+        "category": "PDF", 
+        "icon": "🔍"
+      },
+      {
+        "command": "pdfViewer.resetZoom",
+        "title": "Reset Zoom",
+        "category": "PDF",
+        "icon": "⚖️"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "pdfViewer.open",
+          "when": "resourceExtname == .pdf",
+          "group": "1_open",
+          "order": 1
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "pdfViewer.zoomIn",
+          "when": "activeEditor == pdfViewer",
+          "group": "navigation",
+          "order": 1
+        },
+        {
+          "command": "pdfViewer.zoomOut",
+          "when": "activeEditor == pdfViewer",
+          "group": "navigation",
+          "order": 2
+        },
+        {
+          "command": "pdfViewer.resetZoom",
+          "when": "activeEditor == pdfViewer",
+          "group": "navigation",
+          "order": 3
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "pdfViewer.preview",
+        "displayName": "PDF Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.pdf"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  }
+} 

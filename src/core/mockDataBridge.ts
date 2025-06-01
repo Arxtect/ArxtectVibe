@@ -8,6 +8,31 @@ import {
 import toast from 'react-hot-toast'
 import { IDataBridge, createDataBridge } from './dataBridgeInterface'
 
+// 模拟网络延迟函数
+const simulateNetworkDelay = () => 
+  new Promise(resolve => setTimeout(resolve, Math.random() * 800 + 200))
+
+// 全局状态管理 - 简化版本用于 Mock 模式
+let currentUser: User | null = null
+let projects: Project[] = []
+let currentProject: Project | null = null
+let compileLogs: CompileLogEntry[] = []
+
+const useDataStore = {
+  getState: () => ({
+    currentUser,
+    projects,
+    currentProject,
+    compileLogs,
+    setLoading: (_: boolean) => {}, // Mock 模式下忽略 loading 状态
+    setCurrentUser: (user: User | null) => { currentUser = user },
+    setProjects: (projectList: Project[]) => { projects = projectList },
+    setCurrentProject: (project: Project | null) => { currentProject = project },
+    addCompileLog: (log: CompileLogEntry) => { compileLogs.push(log) },
+    clearCompileLogs: () => { compileLogs = [] }
+  })
+}
+
 // 模拟数据
 const mockUsers: User[] = [
   {
@@ -406,49 +431,50 @@ const mockProjects: Project[] = [
 const mockDataBridgeImpl: IDataBridge = {
   // ========== 用户认证相关 ==========
   async login(username: string, password: string): Promise<User> {
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await simulateNetworkDelay()
     
-    // 简单的用户名密码验证
-    if (username === 'demo' && password === 'demo') {
-      const user = mockUsers[0]
-      
-      // 重要：更新全局状态中的当前用户
-      const { useDataStore } = await import('./dataBridge')
-      useDataStore.getState().setCurrentUser(user)
-      
-      toast.success('登录成功 (Mock模式)')
-      return user
-    } else if (username === 'alice' && password === 'alice') {
-      const user = mockUsers[1] 
-      
-      // 重要：更新全局状态中的当前用户
-      const { useDataStore } = await import('./dataBridge')
-      useDataStore.getState().setCurrentUser(user)
-      
-      toast.success('登录成功 (Mock模式)')
-      return user
-    } else if (username === 'bob' && password === 'bob') {
-      const user = mockUsers[2] 
-      
-      // 重要：更新全局状态中的当前用户
-      const { useDataStore } = await import('./dataBridge')
-      useDataStore.getState().setCurrentUser(user)
-      
-      toast.success('登录成功 (Mock模式)')
-      return user
-    } else {
-      toast.error('用户名或密码错误')
+    console.log(`[MockDataBridge] Attempting login: ${username}`)
+    
+    // 简单的用户名密码验证：用户名和密码相同，或者demo/demo
+    const isValidCredential = (username === 'demo' && password === 'demo') ||
+                              (username === 'alice' && password === 'alice') ||
+                              (username === 'bob' && password === 'bob')
+    
+    if (!isValidCredential) {
       throw new Error('用户名或密码错误')
     }
+    
+    // 查找现有用户或创建新用户
+    let user = mockUsers.find(u => u.username === username)
+    
+    if (!user) {
+      // 创建新用户
+      user = {
+        id: `user_${Date.now()}`,
+        username: username,
+        displayName: username === 'demo' ? '演示用户' : username.charAt(0).toUpperCase() + username.slice(1),
+        email: `${username}@example.com`
+      }
+      mockUsers.push(user)
+    }
+    
+    useDataStore.getState().setCurrentUser(user)
+    
+    // 保存用户状态到localStorage (Mock模式)
+    localStorage.setItem('mock_current_user', JSON.stringify(user))
+    
+    toast.success(`欢迎回来，${user.displayName}！(Mock模式)`)
+    return user
   },
 
   async logout(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200))
+    await simulateNetworkDelay()
     
-    // 清除全局状态中的当前用户
-    const { useDataStore } = await import('./dataBridge')
-    useDataStore.getState().logout()
+    console.log('[MockDataBridge] User logout')
+    useDataStore.getState().setCurrentUser(null)
+    
+    // 清除保存的用户状态
+    localStorage.removeItem('mock_current_user')
     
     toast.success('已退出登录 (Mock模式)')
   },
@@ -691,8 +717,184 @@ const mockDataBridgeImpl: IDataBridge = {
   },
 
   clearCompileLogs(): void {
-    // Mock模式下清空日志
-    console.log('Mock: Compile logs cleared')
+    useDataStore.getState().clearCompileLogs()
+    console.log('[MockDataBridge] Compile logs cleared')
+  },
+
+  // ========== 编辑器文件系统相关 ==========
+  async getProjectFiles(projectId: string): Promise<string[]> {
+    await simulateNetworkDelay()
+    
+    console.log(`[MockDataBridge] Getting files for project: ${projectId}`)
+    
+    const currentUser = useDataStore.getState().currentUser
+    if (!currentUser) {
+      throw new Error('用户未登录')
+    }
+
+    const project = mockProjects.find(p => p.id === projectId)
+    if (!project) {
+      throw new Error('项目不存在')
+    }
+
+    // 从项目的文件列表构建文件路径数组
+    const files: string[] = []
+    
+    project.files.forEach(file => {
+      // 如果文件名包含目录路径，确保目录也在列表中
+      if (file.name.includes('/')) {
+        const dirPath = file.name.substring(0, file.name.lastIndexOf('/') + 1)
+        if (!files.includes(dirPath)) {
+          files.push(dirPath) // 目录以 '/' 结尾
+        }
+      }
+      files.push(file.name)
+    })
+
+    // 排序：目录在前，文件在后
+    files.sort((a, b) => {
+      const aIsDir = a.endsWith('/')
+      const bIsDir = b.endsWith('/')
+      
+      if (aIsDir && !bIsDir) return -1
+      if (!aIsDir && bIsDir) return 1
+      return a.localeCompare(b)
+    })
+
+    console.log(`[MockDataBridge] Found files:`, files)
+    return files
+  },
+
+  async readFile(projectId: string, filePath: string): Promise<string> {
+    await simulateNetworkDelay()
+    
+    console.log(`[MockDataBridge] Reading file: ${projectId}/${filePath}`)
+    
+    const currentUser = useDataStore.getState().currentUser
+    if (!currentUser) {
+      throw new Error('用户未登录')
+    }
+
+    const project = mockProjects.find(p => p.id === projectId)
+    if (!project) {
+      throw new Error('项目不存在')
+    }
+
+    const file = project.files.find(f => f.name === filePath)
+    if (!file) {
+      throw new Error(`文件不存在: ${filePath}`)
+    }
+
+    console.log(`[MockDataBridge] File content length: ${file.content?.length || 0}`)
+    return file.content || ''
+  },
+
+  async writeFile(projectId: string, filePath: string, content: string): Promise<void> {
+    await simulateNetworkDelay()
+    
+    console.log(`[MockDataBridge] Writing file: ${projectId}/${filePath}`)
+    
+    const currentUser = useDataStore.getState().currentUser
+    if (!currentUser) {
+      throw new Error('用户未登录')
+    }
+
+    const project = mockProjects.find(p => p.id === projectId)
+    if (!project) {
+      throw new Error('项目不存在')
+    }
+
+    let file = project.files.find(f => f.name === filePath)
+    if (file) {
+      // 更新现有文件
+      file.content = content
+    } else {
+      // 创建新文件
+      const newFile: FileEntry = {
+        fileId: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: filePath,
+        content: content,
+        isMain: filePath === 'main.tex'
+      }
+      project.files.push(newFile)
+    }
+
+    console.log(`[MockDataBridge] File written successfully`)
+    toast.success(`文件 ${filePath} 已保存`)
+  },
+
+  async fileExists(projectId: string, path: string): Promise<boolean> {
+    await simulateNetworkDelay()
+    
+    console.log(`[MockDataBridge] Checking if exists: ${projectId}/${path}`)
+    
+    const currentUser = useDataStore.getState().currentUser
+    if (!currentUser) {
+      return false
+    }
+
+    const project = mockProjects.find(p => p.id === projectId)
+    if (!project) {
+      return false
+    }
+
+    // 检查文件是否存在
+    const fileExists = project.files.some(f => f.name === path)
+    
+    // 检查目录是否存在（如果路径以 '/' 结尾或有文件在该目录下）
+    const dirExists = path.endsWith('/') 
+      ? project.files.some(f => f.name.startsWith(path))
+      : project.files.some(f => f.name.startsWith(path + '/'))
+
+    const exists = fileExists || dirExists
+    console.log(`[MockDataBridge] Path exists: ${exists}`)
+    return exists
+  },
+
+  getProjectPath(projectId: string): string {
+    const currentUser = useDataStore.getState().currentUser
+    if (!currentUser) {
+      return `/projects/guest/${projectId}`
+    }
+
+    // 返回用户隔离的项目路径
+    const projectPath = `/projects/${currentUser.username}/${projectId}`
+    console.log(`[MockDataBridge] Project path: ${projectPath}`)
+    return projectPath
+  },
+
+  async initializeProjectSpace(projectId: string): Promise<void> {
+    await simulateNetworkDelay()
+    
+    console.log(`[MockDataBridge] Initializing project space: ${projectId}`)
+    
+    const currentUser = useDataStore.getState().currentUser
+    if (!currentUser) {
+      throw new Error('用户未登录')
+    }
+
+    // 检查项目是否已存在
+    let project = mockProjects.find(p => p.id === projectId)
+    
+    if (!project) {
+      // 如果项目不存在，创建默认项目
+      console.log(`[MockDataBridge] Creating default project for user: ${currentUser.username}`)
+      
+      project = createDefaultLatexProject(currentUser.id, currentUser.displayName || currentUser.username)
+      project.id = projectId // 使用指定的项目ID
+      project.name = projectId === 'demo-project' ? '📄 演示项目' : project.name
+      
+      mockProjects.push(project)
+      
+      // 更新全局状态
+      useDataStore.getState().setProjects([...mockProjects])
+      useDataStore.getState().setCurrentProject(project)
+      
+      toast.success('项目空间初始化完成')
+    } else {
+      console.log(`[MockDataBridge] Project already exists: ${projectId}`)
+      useDataStore.getState().setCurrentProject(project)
+    }
   }
 }
 

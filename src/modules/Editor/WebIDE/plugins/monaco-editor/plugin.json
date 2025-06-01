@@ -1,0 +1,69 @@
+{
+  "id": "monaco-editor",
+  "name": "Monaco Editor",
+  "version": "1.0.0",
+  "description": "Advanced code editor with syntax highlighting and auto-completion",
+  "main": "./extension.js",
+  "activationEvents": ["onFileOpen:*.tex", "onFileOpen:*.md", "onFileOpen:*.js", "onFileOpen:*.ts"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "monacoEditor.format",
+        "title": "Format Document"
+      },
+      {
+        "command": "monacoEditor.toggleMinimap",
+        "title": "Toggle Minimap"
+      },
+      {
+        "command": "monacoEditor.toggleWordWrap",
+        "title": "Toggle Word Wrap"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "monacoEditor.format",
+          "when": "editorTextFocus",
+          "group": "formatting"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "monacoEditor.textEditor",
+        "displayName": "Monaco Text Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.tex"
+          },
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.js"
+          },
+          {
+            "filenamePattern": "*.ts"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "monacoEditor.format",
+        "key": "shift+alt+f",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "engines": {
+    "webide": "^1.0.0"
+  },
+  "categories": ["Editor", "Formatters"],
+  "keywords": ["monaco", "editor", "syntax", "highlighting", "latex"],
+  "dependencies": {
+    "monaco-editor": "^0.44.0"
+  }
+} 

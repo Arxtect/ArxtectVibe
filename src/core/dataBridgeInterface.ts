@@ -79,6 +79,53 @@ export interface IDataBridge {
    */
   deleteFile(projectId: string, fileId: string): Promise<void>
 
+  // ========== 编辑器文件系统相关 ==========
+  /**
+   * 获取项目文件列表（包含目录结构）
+   * @param projectId 项目ID
+   * @returns Promise<string[]> 文件路径列表，目录以 '/' 结尾
+   */
+  getProjectFiles(projectId: string): Promise<string[]>
+  
+  /**
+   * 读取文件内容
+   * @param projectId 项目ID
+   * @param filePath 文件相对路径
+   * @returns Promise<string> 文件内容
+   */
+  readFile(projectId: string, filePath: string): Promise<string>
+  
+  /**
+   * 写入文件内容
+   * @param projectId 项目ID
+   * @param filePath 文件相对路径
+   * @param content 文件内容
+   * @returns Promise<void>
+   */
+  writeFile(projectId: string, filePath: string, content: string): Promise<void>
+  
+  /**
+   * 检查文件/目录是否存在
+   * @param projectId 项目ID
+   * @param path 文件或目录路径
+   * @returns Promise<boolean>
+   */
+  fileExists(projectId: string, path: string): Promise<boolean>
+  
+  /**
+   * 获取用户项目根路径
+   * @param projectId 项目ID
+   * @returns string 项目在文件系统中的实际路径
+   */
+  getProjectPath(projectId: string): string
+  
+  /**
+   * 初始化项目文件空间（确保项目目录和示例文件存在）
+   * @param projectId 项目ID
+   * @returns Promise<void>
+   */
+  initializeProjectSpace(projectId: string): Promise<void>
+
   // ========== 协作者管理相关 ==========
   /**
    * 添加协作者
@@ -131,7 +178,8 @@ export function validateDataBridgeImplementation(impl: any): impl is IDataBridge
     'fetchProjects', 'createProject', 'openProject', 'deleteProject',
     'saveFile', 'createFile', 'deleteFile', 
     'addCollaborator', 'updateMemberRole', 'removeMember',
-    'addCompileLog', 'clearCompileLogs'
+    'addCompileLog', 'clearCompileLogs',
+    'getProjectFiles', 'readFile', 'writeFile', 'fileExists', 'getProjectPath', 'initializeProjectSpace'
   ]
   
   for (const method of requiredMethods) {

@@ -410,6 +410,133 @@ const realDataBridgeImpl: IDataBridge = {
 
   clearCompileLogs(): void {
     useDataStore.getState().clearCompileLogs()
+  },
+
+  // ========== 编辑器文件系统相关 ==========
+  async getProjectFiles(projectId: string): Promise<string[]> {
+    try {
+      useDataStore.getState().setLoading(true)
+      const response = await apiClient.get<ApiResponse<string[]>>(`/projects/${projectId}/files`)
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data
+      } else {
+        throw new Error(response.data.message || '获取文件列表失败')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '获取文件列表失败'
+        : error instanceof Error
+        ? error.message
+        : '获取文件列表失败'
+      toast.error(message)
+      throw new Error(message)
+    } finally {
+      useDataStore.getState().setLoading(false)
+    }
+  },
+
+  async readFile(projectId: string, filePath: string): Promise<string> {
+    try {
+      useDataStore.getState().setLoading(true)
+      const response = await apiClient.get<ApiResponse<{ content: string }>>(
+        `/projects/${projectId}/files/${encodeURIComponent(filePath)}`
+      )
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data.content
+      } else {
+        throw new Error(response.data.message || '读取文件失败')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '读取文件失败'
+        : error instanceof Error
+        ? error.message
+        : '读取文件失败'
+      toast.error(message)
+      throw new Error(message)
+    } finally {
+      useDataStore.getState().setLoading(false)
+    }
+  },
+
+  async writeFile(projectId: string, filePath: string, content: string): Promise<void> {
+    try {
+      useDataStore.getState().setLoading(true)
+      const response = await apiClient.put<ApiResponse<void>>(
+        `/projects/${projectId}/files/${encodeURIComponent(filePath)}`,
+        { content }
+      )
+      
+      if (response.data.success) {
+        toast.success(`文件 ${filePath} 已保存`)
+      } else {
+        throw new Error(response.data.message || '保存文件失败')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '保存文件失败'
+        : error instanceof Error
+        ? error.message
+        : '保存文件失败'
+      toast.error(message)
+      throw new Error(message)
+    } finally {
+      useDataStore.getState().setLoading(false)
+    }
+  },
+
+  async fileExists(projectId: string, path: string): Promise<boolean> {
+    try {
+      const response = await apiClient.head(
+        `/projects/${projectId}/files/${encodeURIComponent(path)}`
+      )
+      return response.status === 200
+    } catch (error: unknown) {
+      // 404 表示文件不存在，这是正常情况
+      if (error instanceof AxiosError && error.response?.status === 404) {
+        return false
+      }
+      // 其他错误则抛出
+      console.error('Check file exists error:', error)
+      return false
+    }
+  },
+
+  getProjectPath(projectId: string): string {
+    const currentUser = useDataStore.getState().currentUser
+    if (!currentUser) {
+      return `/projects/guest/${projectId}`
+    }
+    return `/projects/${currentUser.username}/${projectId}`
+  },
+
+  async initializeProjectSpace(projectId: string): Promise<void> {
+    try {
+      useDataStore.getState().setLoading(true)
+      const response = await apiClient.post<ApiResponse<Project>>(
+        `/projects/${projectId}/initialize`
+      )
+      
+      if (response.data.success && response.data.data) {
+        const project = response.data.data
+        useDataStore.getState().setCurrentProject(project)
+        toast.success('项目空间初始化完成')
+      } else {
+        throw new Error(response.data.message || '初始化项目空间失败')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message || '初始化项目空间失败'
+        : error instanceof Error
+        ? error.message
+        : '初始化项目空间失败'
+      toast.error(message)
+      throw new Error(message)
+    } finally {
+      useDataStore.getState().setLoading(false)
+    }
   }
 }
 
